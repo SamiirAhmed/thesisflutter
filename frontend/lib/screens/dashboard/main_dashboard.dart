@@ -58,12 +58,36 @@ class _MainDashboardState extends State<MainDashboard> {
         _userData = jsonDecode(stored) as Map<String, dynamic>;
         _isLoading = false;
       });
+      // Verify account status in background
+      _verifyStatus();
     } else {
       // No local session — send back to login
       setState(() => _isLoading = false);
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) Navigator.pushReplacementNamed(context, '/');
       });
+    }
+  }
+
+  Future<void> _verifyStatus() async {
+    // fetchMe will return success: false if status is not ACTIVE
+    final result = await ApiService.fetchMe();
+    if (!mounted) return;
+
+    if (result['success'] == false) {
+      final msg = (result['message'] ?? '').toString().toLowerCase();
+      if (msg.contains('inactive') || msg.contains('unauthorized')) {
+        // Log them out and show reason
+        await _logout();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(result['message'] ?? 'Account status changed.'),
+              backgroundColor: Colors.redAccent,
+            ),
+          );
+        }
+      }
     }
   }
 
@@ -320,6 +344,7 @@ class _StudentShellState extends State<_StudentShell> {
         name: name,
         roleName: roleName,
         roleId: roleId,
+        userData: widget.userData,
         modules: widget.modules,
         selectedTab: _selectedTab,
         onTabSelected: (i) => setState(() => _selectedTab = i),
@@ -659,6 +684,7 @@ class _StudentDrawer extends StatelessWidget {
   final String name;
   final String roleName;
   final int roleId;
+  final Map<String, dynamic> userData;
   final List<Map<String, dynamic>> modules;
   final int selectedTab;
   final void Function(int) onTabSelected;
@@ -668,6 +694,7 @@ class _StudentDrawer extends StatelessWidget {
     required this.name,
     required this.roleName,
     required this.roleId,
+    required this.userData,
     required this.modules,
     required this.selectedTab,
     required this.onTabSelected,
@@ -713,6 +740,60 @@ class _StudentDrawer extends StatelessWidget {
                         color: Colors.white.withOpacity(0.7),
                         fontSize: 12,
                         fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color:
+                            (userData['status'] ?? '')
+                                    .toString()
+                                    .toUpperCase() ==
+                                'ACTIVE'
+                            ? Colors.green.withOpacity(0.3)
+                            : Colors.red.withOpacity(0.3),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color:
+                              (userData['status'] ?? '')
+                                      .toString()
+                                      .toUpperCase() ==
+                                  'ACTIVE'
+                              ? Colors.greenAccent
+                              : Colors.redAccent,
+                          width: 1,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.circle,
+                            size: 6,
+                            color:
+                                (userData['status'] ?? '')
+                                        .toString()
+                                        .toUpperCase() ==
+                                    'ACTIVE'
+                                ? Colors.greenAccent
+                                : Colors.redAccent,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            (userData['status'] ?? 'N/A')
+                                .toString()
+                                .toUpperCase(),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 8,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],

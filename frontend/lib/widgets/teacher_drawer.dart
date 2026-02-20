@@ -54,6 +54,7 @@ class TeacherDrawer extends StatelessWidget {
                 initials: _initials,
                 name: _name,
                 roleName: _roleName,
+                status: (userData['status'] ?? '').toString(),
               ),
 
               Padding(
@@ -190,8 +191,14 @@ class TeacherDrawer extends StatelessWidget {
                       Container(
                         width: 8,
                         height: 8,
-                        decoration: const BoxDecoration(
-                          color: Color(0xFF69F0AE),
+                        decoration: BoxDecoration(
+                          color:
+                              (userData['status'] ?? '')
+                                      .toString()
+                                      .toUpperCase() ==
+                                  'ACTIVE'
+                              ? const Color(0xFF69F0AE)
+                              : const Color(0xFFFF5252),
                           shape: BoxShape.circle,
                         ),
                       ),
@@ -252,11 +259,13 @@ class _ProfileSection extends StatelessWidget {
   final String initials;
   final String name;
   final String roleName;
+  final String status;
 
   const _ProfileSection({
     required this.initials,
     required this.name,
     required this.roleName,
+    required this.status,
   });
 
   @override
@@ -306,34 +315,61 @@ class _ProfileSection extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 3),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 9,
-                        vertical: 3,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppColors.teacherBadge,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text(
-                        roleName.toUpperCase(),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 9,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 1.1,
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 9,
+                            vertical: 3,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.teacherBadge,
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(
+                            roleName.toUpperCase(),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 9,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 1.1,
+                            ),
+                          ),
                         ),
-                      ),
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: status.toUpperCase() == 'ACTIVE'
+                                ? Colors.green.withOpacity(0.2)
+                                : Colors.red.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: status.toUpperCase() == 'ACTIVE'
+                                  ? Colors.greenAccent
+                                  : Colors.redAccent,
+                              width: 1,
+                            ),
+                          ),
+                          child: Text(
+                            status.isEmpty ? 'N/A' : status.toUpperCase(),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 7.5,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
               ),
             ],
           ),
-
-          const SizedBox(height: 18),
-
-          // Info box removed as requested
         ],
       ),
     );

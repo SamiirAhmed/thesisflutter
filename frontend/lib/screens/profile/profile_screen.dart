@@ -60,29 +60,108 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _buildError() {
+    final bool isInactive =
+        _errorMessage != null &&
+        (_errorMessage!.toLowerCase().contains('inactive') ||
+            _errorMessage!.toLowerCase().contains('status'));
+
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(
-              Icons.error_outline_rounded,
-              size: 60,
-              color: AppColors.danger,
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: isInactive
+                    ? Colors.orange.withOpacity(0.1)
+                    : AppColors.danger.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                isInactive
+                    ? Icons.lock_person_rounded
+                    : Icons.error_outline_rounded,
+                size: 64,
+                color: isInactive ? Colors.orange : AppColors.danger,
+              ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 24),
+            Text(
+              isInactive ? 'Account Restricted' : 'Error Occurred',
+              style: const TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w900,
+                letterSpacing: -0.5,
+              ),
+            ),
+            const SizedBox(height: 12),
             Text(
               _errorMessage!,
               textAlign: TextAlign.center,
-              style: const TextStyle(color: AppColors.textSecondary),
+              style: const TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 14,
+                height: 1.5,
+              ),
             ),
-            const SizedBox(height: 24),
-            ElevatedButton.icon(
-              onPressed: _loadProfile,
-              icon: const Icon(Icons.refresh_rounded),
-              label: const Text('Retry'),
-            ),
+            const SizedBox(height: 32),
+            if (isInactive)
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => ApiService.logout().then((_) {
+                    Navigator.of(
+                      context,
+                    ).pushNamedAndRemoveUntil('/', (route) => false);
+                  }),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.orange,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                  child: const Text(
+                    'Return to Login',
+                    style: TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                ),
+              )
+            else
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(context),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                      ),
+                      child: const Text('Go Back'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: _loadProfile,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                      ),
+                      child: const Text('Try Again'),
+                    ),
+                  ),
+                ],
+              ),
           ],
         ),
       ),
@@ -144,14 +223,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 child: CircleAvatar(
                   radius: 40,
                   backgroundColor: Colors.white.withOpacity(0.2),
-                  child: Text(
-                    initials,
-                    style: const TextStyle(
-                      fontSize: 32,
-                      fontWeight: FontWeight.w900,
-                      color: Colors.white,
-                    ),
-                  ),
+                  backgroundImage:
+                      profile['profile_image'] != null &&
+                          profile['profile_image'].toString().isNotEmpty
+                      ? NetworkImage(profile['profile_image'].toString())
+                      : null,
+                  child:
+                      (profile['profile_image'] == null ||
+                          profile['profile_image'].toString().isEmpty)
+                      ? Text(
+                          initials,
+                          style: const TextStyle(
+                            fontSize: 32,
+                            fontWeight: FontWeight.w900,
+                            color: Colors.white,
+                          ),
+                        )
+                      : null,
                 ),
               ),
               const SizedBox(height: 12),
@@ -187,6 +275,53 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                 ),
               ),
+              const SizedBox(height: 10),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color:
+                      (profile['status'] ?? '').toString().toUpperCase() ==
+                          'ACTIVE'
+                      ? Colors.green.withOpacity(0.3)
+                      : Colors.red.withOpacity(0.3),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color:
+                        (profile['status'] ?? '').toString().toUpperCase() ==
+                            'ACTIVE'
+                        ? Colors.greenAccent
+                        : Colors.redAccent,
+                    width: 1,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.circle,
+                      size: 8,
+                      color:
+                          (profile['status'] ?? '').toString().toUpperCase() ==
+                              'ACTIVE'
+                          ? Colors.greenAccent
+                          : Colors.redAccent,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      (profile['status'] ?? 'UNKNOWN').toString().toUpperCase(),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 9,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 1,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ],
           ),
         ),
@@ -197,6 +332,49 @@ class _ProfileScreenState extends State<ProfileScreen> {
             padding: const EdgeInsets.fromLTRB(20, 20, 20, 30),
             child: Column(
               children: [
+                // Summary Cards (ID, HEMIS, Class, Semester)
+                if (isStudent) ...[
+                  GridView.count(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    crossAxisCount: 2,
+                    mainAxisSpacing: 12,
+                    crossAxisSpacing: 12,
+                    childAspectRatio: 1.6,
+                    children: [
+                      _buildSummaryCard(
+                        'Student ID',
+                        profile['student_id']?.toString() ?? 'N/A',
+                        Icons.person_rounded,
+                        Colors.green.shade50,
+                        Colors.green,
+                      ),
+                      _buildSummaryCard(
+                        'NIRA',
+                        profile['nira']?.toString() ?? 'N/A',
+                        Icons.check_box_rounded,
+                        Colors.blue.shade50,
+                        Colors.blue,
+                      ),
+                      _buildSummaryCard(
+                        'Class',
+                        profile['class_name']?.toString() ?? 'N/A',
+                        Icons.bookmark_rounded,
+                        Colors.orange.shade50,
+                        Colors.orange,
+                      ),
+                      _buildSummaryCard(
+                        'Semester',
+                        profile['semester']?.toString() ?? 'N/A',
+                        Icons.calendar_month_rounded,
+                        Colors.purple.shade50,
+                        Colors.purple,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                ],
+
                 // 1. Role-specific Information (Moved to top)
                 if (isStudent) ...[
                   _buildSection(
@@ -204,29 +382,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     icon: Icons.school_rounded,
                     children: [
                       _buildInfoRow(
-                        'Student ID',
-                        profile['student_id']?.toString() ?? 'N/A',
-                        Icons.numbers_rounded,
-                      ),
-                      _buildInfoRow(
-                        'Class Name',
-                        profile['class_name']?.toString() ?? 'N/A',
-                        Icons.class_rounded,
-                      ),
-                      _buildInfoRow(
-                        'Semester',
-                        profile['semester']?.toString() ?? 'N/A',
-                        Icons.calendar_month_rounded,
-                      ),
-                      _buildInfoRow(
-                        'Faculty',
-                        profile['faculty']?.toString() ?? 'N/A',
-                        Icons.account_balance_rounded,
-                      ),
-                      _buildInfoRow(
-                        'Department',
-                        profile['department']?.toString() ?? 'N/A',
+                        'Campus',
+                        profile['campus_name']?.toString() ?? 'N/A',
                         Icons.apartment_rounded,
+                      ),
+                      _buildInfoRow(
+                        'Mode',
+                        profile['study_mode']?.toString() ?? 'N/A',
+                        Icons.school_rounded,
+                      ),
+                      _buildInfoRow(
+                        'Entry Time',
+                        profile['entry_time']?.toString() ?? 'N/A',
+                        Icons.access_time_rounded,
                       ),
                     ],
                   ),
@@ -256,32 +424,82 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
                 const SizedBox(height: 16),
 
-                // 2. Account information
+                // 2. Educational Background
                 _buildSection(
-                  title: 'Account Information',
-                  icon: Icons.person_outline_rounded,
+                  title: 'Educational Background',
+                  icon: Icons.assignment_rounded,
                   children: [
-                    _buildInfoRow('Full Name', name, Icons.person_rounded),
                     _buildInfoRow(
-                      'User ID',
-                      profile['user_id']?.toString() ?? 'N/A',
-                      Icons.badge_rounded,
+                      'School',
+                      profile['previous_school']?.toString() ?? 'N/A',
+                      Icons.school_rounded,
                     ),
                     _buildInfoRow(
-                      'Username',
-                      profile['username'] ?? 'N/A',
-                      Icons.alternate_email_rounded,
+                      'Graduation Year',
+                      profile['grad_year']?.toString() ?? 'N/A',
+                      Icons.calendar_today_rounded,
                     ),
                     _buildInfoRow(
-                      'Status',
-                      profile['status'] ?? 'N/A',
-                      isStudent ? null : Icons.circle,
-                      valueColor:
-                          (profile['status'] ?? '').toUpperCase() == 'ACTIVE'
-                          ? AppColors.success
-                          : AppColors.danger,
+                      'Grade',
+                      profile['grade']?.toString() ?? 'N/A',
+                      Icons.star_rounded,
                     ),
-                    _buildInfoRow('Role', roleName, Icons.security_rounded),
+                  ],
+                ),
+
+                const SizedBox(height: 16),
+
+                // 2. Personal Information (Replaces Account Information)
+                _buildSection(
+                  title: 'Personal Information',
+                  icon: Icons.person_rounded,
+                  children: [
+                    _buildInfoRow(
+                      'Gender',
+                      profile['gender']?.toString() ?? 'N/A',
+                      Icons.person_outline_rounded,
+                    ),
+                    _buildInfoRow(
+                      'Place of Birth',
+                      profile['pob']?.toString() ?? 'N/A',
+                      Icons.location_on_rounded,
+                    ),
+                    _buildInfoRow(
+                      'Address',
+                      profile['address']?.toString() ?? 'N/A',
+                      Icons.home_rounded,
+                    ),
+                    if (isStudent)
+                      _buildInfoRow(
+                        "Mother's Name",
+                        profile['mother_name']?.toString() ?? 'N/A',
+                        Icons.group_rounded,
+                      ),
+                  ],
+                ),
+
+                const SizedBox(height: 16),
+
+                // 3. Contact Information
+                _buildSection(
+                  title: 'Contact Information',
+                  icon: Icons.phone_rounded,
+                  children: [
+                    _buildInfoRow(
+                      'Phone',
+                      profile['phone']?.toString() ?? 'N/A',
+                      Icons.phone_iphone_rounded,
+                    ),
+                    _buildInfoRow(
+                      'Email',
+                      profile['email']?.toString() ?? 'N/A',
+                      Icons.mail_outline_rounded,
+                    ),
+                    _buildInfoRow(
+                      'Emergency Contact',
+                      profile['emergency_contact']?.toString() ?? 'N/A',
+                      Icons.star_rounded,
+                    ),
                   ],
                 ),
 
@@ -313,6 +531,37 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                     ),
                   ],
+                ),
+                const SizedBox(height: 24),
+
+                // 4. Logout Button
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: () => ApiService.logout().then((_) {
+                      Navigator.of(
+                        context,
+                      ).pushNamedAndRemoveUntil('/login', (route) => false);
+                    }),
+                    icon: const Icon(Icons.logout_rounded, color: Colors.white),
+                    label: const Text(
+                      'Logout',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white,
+                      ),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.danger,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      elevation: 0,
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -371,6 +620,68 @@ class _ProfileScreenState extends State<ProfileScreen> {
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
             child: Column(children: children),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSummaryCard(
+    String label,
+    String value,
+    IconData icon,
+    Color bg,
+    Color iconColor,
+  ) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardTheme.color,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(isDark ? 0.2 : 0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: bg,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, color: iconColor, size: 18),
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: isDark
+                      ? AppColors.textSecondaryDark
+                      : AppColors.textSecondary,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                value,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                  color: isDark ? Colors.white : AppColors.textPrimary,
+                ),
+              ),
+            ],
           ),
         ],
       ),

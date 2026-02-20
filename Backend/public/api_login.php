@@ -86,15 +86,25 @@ try {
         exit;
     }
 
-    // ── Step 4: Active / Inactive status check ────────────────────────────────
-    $status = strtoupper($dbUser['status'] ?? '');
-    if ($status !== 'ACTIVE') {
-        http_response_code(403);
-        echo json_encode([
-            'success' => false,
-            'message' => 'Your account is currently ' . ucfirst(strtolower($status ?: 'Inactive')) . '. Please contact the university administration to activate your account.'
-        ]);
-        exit;
+    // ── Step 4: Active / Inactive status check (Fetch directly from table for accuracy) ──
+    $check_stmt = $conn->prepare("SELECT status FROM users WHERE user_id = ?");
+    if ($check_stmt) {
+        $check_stmt->bind_param("i", $dbUser['user_id']);
+        $check_stmt->execute();
+        $status_row = $check_stmt->get_result()->fetch_assoc();
+        $check_stmt->close();
+        
+        $statusRaw = $status_row['status'] ?? 'Inactive';
+        $statusClean = strtoupper(trim($statusRaw));
+        
+        if ($statusClean !== 'ACTIVE') {
+            http_response_code(403);
+            echo json_encode([
+                'success' => false,
+                'message' => 'Your account is currently ' . $statusRaw . '. Please contact the university administration to activate your account.'
+            ]);
+            exit;
+        }
     }
 
     // ── Step 5: Load RBAC — Dashboard, Modules (max 3), Permissions ──────────

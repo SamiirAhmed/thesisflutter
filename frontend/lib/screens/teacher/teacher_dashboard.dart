@@ -71,6 +71,7 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
               name: _name,
               roleName: _roleName,
               teacherId: _teacherId,
+              status: (userData['status'] ?? '').toString(),
             ),
           ),
 
@@ -149,11 +150,13 @@ class _TeacherHeroHeader extends StatelessWidget {
   final String name;
   final String roleName;
   final String teacherId;
+  final String status;
 
   const _TeacherHeroHeader({
     required this.name,
     required this.roleName,
     required this.teacherId,
+    required this.status,
   });
 
   @override
@@ -277,6 +280,47 @@ class _TeacherHeroHeader extends StatelessWidget {
                       icon: Icons.verified_user_rounded,
                       label: 'Role:',
                       value: roleName,
+                    ),
+                    const SizedBox(width: 10),
+                    // Status Badge
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: status.toUpperCase() == 'ACTIVE'
+                            ? Colors.greenAccent.withOpacity(0.2)
+                            : Colors.redAccent.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: status.toUpperCase() == 'ACTIVE'
+                              ? Colors.greenAccent
+                              : Colors.redAccent,
+                          width: 1,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.circle,
+                            size: 8,
+                            color: status.toUpperCase() == 'ACTIVE'
+                                ? Colors.greenAccent
+                                : Colors.redAccent,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            status.isEmpty ? 'UNKNOWN' : status.toUpperCase(),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 9,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),
