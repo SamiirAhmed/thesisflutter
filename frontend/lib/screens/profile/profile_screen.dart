@@ -93,7 +93,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final themeProvider = Provider.of<ThemeProvider>(context);
     final profile = _profile!;
     final roleId = (profile['role_id'] as num?)?.toInt() ?? 0;
-    final isStudent = roleId == 1;
+    // Note: Teacher role is 2. Student roles are 1 and 6 based on database schema.
+    final isStudent = roleId == 1 || roleId == 6;
     final name = profile['full_name'] ?? profile['username'] ?? 'User';
     final roleName =
         profile['role_name'] ?? (isStudent ? 'Student' : 'Teacher');
@@ -196,93 +197,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             padding: const EdgeInsets.fromLTRB(20, 20, 20, 30),
             child: Column(
               children: [
-                // 1. Settings (Dark Mode)
-                _buildSection(
-                  title: 'App Settings',
-                  icon: Icons.settings_rounded,
-                  children: [
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: Icon(
-                        themeProvider.isDarkMode
-                            ? Icons.dark_mode_rounded
-                            : Icons.light_mode_rounded,
-                        color: themeProvider.isDarkMode
-                            ? Colors.amber
-                            : Colors.orange,
-                      ),
-                      title: const Text(
-                        'Dark Mode',
-                        style: TextStyle(fontWeight: FontWeight.w600),
-                      ),
-                      trailing: Switch(
-                        value: themeProvider.isDarkMode,
-                        activeColor: AppColors.primary,
-                        onChanged: (val) => themeProvider.toggleTheme(),
-                      ),
-                    ),
-                  ],
-                ),
-
-                const SizedBox(height: 16),
-
-                // 2. Account information
-                _buildSection(
-                  title: 'Account Information',
-                  icon: Icons.person_outline_rounded,
-                  children: [
-                    _buildInfoRow('Full Name', name, Icons.person_rounded),
-                    _buildInfoRow(
-                      'User ID',
-                      profile['user_id']?.toString() ?? 'N/A',
-                      Icons.badge_rounded,
-                    ),
-                    _buildInfoRow(
-                      'Username',
-                      profile['username'] ?? 'N/A',
-                      Icons.alternate_email_rounded,
-                    ),
-                    _buildInfoRow(
-                      'Status',
-                      profile['status'] ?? 'N/A',
-                      Icons.circle,
-                      valueColor:
-                          (profile['status'] ?? '').toUpperCase() == 'ACTIVE'
-                          ? AppColors.success
-                          : AppColors.danger,
-                    ),
-                    _buildInfoRow('Role', roleName, Icons.security_rounded),
-                  ],
-                ),
-
-                const SizedBox(height: 16),
-
-                // 3. Activity Logs
-                _buildSection(
-                  title: 'Activity Logs',
-                  icon: Icons.history_rounded,
-                  children: [
-                    _buildInfoRow(
-                      'Last Login',
-                      'Today, 10:15 AM', // Mock for now
-                      Icons.login_rounded,
-                    ),
-                    _buildInfoRow(
-                      'Language',
-                      'English',
-                      Icons.language_rounded,
-                    ),
-                    _buildInfoRow(
-                      'Profile Updates',
-                      'None recently',
-                      Icons.edit_note_rounded,
-                    ),
-                  ],
-                ),
-
-                const SizedBox(height: 16),
-
-                // 4. Role-specific Information
+                // 1. Role-specific Information (Moved to top)
                 if (isStudent) ...[
                   _buildSection(
                     title: 'Academic Information',
@@ -338,6 +253,67 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ],
                   ),
                 ],
+
+                const SizedBox(height: 16),
+
+                // 2. Account information
+                _buildSection(
+                  title: 'Account Information',
+                  icon: Icons.person_outline_rounded,
+                  children: [
+                    _buildInfoRow('Full Name', name, Icons.person_rounded),
+                    _buildInfoRow(
+                      'User ID',
+                      profile['user_id']?.toString() ?? 'N/A',
+                      Icons.badge_rounded,
+                    ),
+                    _buildInfoRow(
+                      'Username',
+                      profile['username'] ?? 'N/A',
+                      Icons.alternate_email_rounded,
+                    ),
+                    _buildInfoRow(
+                      'Status',
+                      profile['status'] ?? 'N/A',
+                      isStudent ? null : Icons.circle,
+                      valueColor:
+                          (profile['status'] ?? '').toUpperCase() == 'ACTIVE'
+                          ? AppColors.success
+                          : AppColors.danger,
+                    ),
+                    _buildInfoRow('Role', roleName, Icons.security_rounded),
+                  ],
+                ),
+
+                const SizedBox(height: 16),
+
+                // 3. Settings (Dark Mode)
+                _buildSection(
+                  title: 'App Settings',
+                  icon: Icons.settings_rounded,
+                  children: [
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: Icon(
+                        themeProvider.isDarkMode
+                            ? Icons.dark_mode_rounded
+                            : Icons.light_mode_rounded,
+                        color: themeProvider.isDarkMode
+                            ? Colors.amber
+                            : Colors.orange,
+                      ),
+                      title: const Text(
+                        'Dark Mode',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      trailing: Switch(
+                        value: themeProvider.isDarkMode,
+                        activeColor: AppColors.primary,
+                        onChanged: (val) => themeProvider.toggleTheme(),
+                      ),
+                    ),
+                  ],
+                ),
               ],
             ),
           ),
@@ -348,7 +324,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Widget _buildSection({
     required String title,
-    required IconData icon,
+    IconData? icon,
     required List<Widget> children,
   }) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -370,15 +346,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
             padding: const EdgeInsets.fromLTRB(20, 18, 20, 12),
             child: Row(
               children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(10),
+                if (icon != null) ...[
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(icon, color: AppColors.primary, size: 20),
                   ),
-                  child: Icon(icon, color: AppColors.primary, size: 20),
-                ),
-                const SizedBox(width: 12),
+                  const SizedBox(width: 12),
+                ],
                 Text(
                   title,
                   style: const TextStyle(
@@ -402,7 +380,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget _buildInfoRow(
     String label,
     String value,
-    IconData icon, {
+    IconData? icon, {
     Color? valueColor,
   }) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -410,14 +388,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
         children: [
-          Icon(
-            icon,
-            size: 18,
-            color: isDark
-                ? AppColors.textSecondaryDark
-                : AppColors.textSecondary,
-          ),
-          const SizedBox(width: 12),
+          if (icon != null) ...[
+            Icon(
+              icon,
+              size: 18,
+              color: isDark
+                  ? AppColors.textSecondaryDark
+                  : AppColors.textSecondary,
+            ),
+            const SizedBox(width: 12),
+          ],
           Expanded(
             child: Text(
               label,

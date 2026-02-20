@@ -524,7 +524,7 @@ class _StudentSummaryCard extends StatelessWidget {
       children: [
         Row(
           children: [
-            Icon(icon, size: 17, color: AppColors.textSecondary),
+            Icon(icon, size: 16, color: AppColors.primary.withOpacity(0.7)),
             const SizedBox(width: 10),
             Expanded(
               child: Text(
@@ -692,11 +692,7 @@ class _StudentDrawer extends StatelessWidget {
                     color: Colors.white.withOpacity(0.15),
                     borderRadius: BorderRadius.circular(16),
                   ),
-                  child: const Icon(
-                    Icons.account_balance_rounded,
-                    color: Colors.white,
-                    size: 36,
-                  ),
+                  child: const SizedBox(width: 36, height: 36),
                 ),
                 const SizedBox(width: 14),
                 Column(
@@ -781,10 +777,8 @@ class _StudentDrawer extends StatelessWidget {
                   ...modules.map((m) {
                     final title = m['title'] ?? 'Module';
                     final key = m['key'] ?? '';
-                    // Simple icon mapping or default
                     IconData icon = Icons.description_rounded;
-                    if (key.contains('appeal'))
-                      icon = Icons.assignment_turned_in_rounded;
+                    if (key.contains('exam')) icon = Icons.quiz_rounded;
                     if (key.contains('class')) icon = Icons.class_rounded;
                     if (key.contains('env')) icon = Icons.apartment_rounded;
 
@@ -863,7 +857,7 @@ class _StudentDrawer extends StatelessWidget {
 
   Widget _drawerItem(
     BuildContext context, {
-    required IconData icon,
+    IconData? icon,
     required String label,
     required bool isActive,
     required VoidCallback onTap,
@@ -879,15 +873,17 @@ class _StudentDrawer extends StatelessWidget {
         ),
         child: Row(
           children: [
-            Container(
-              padding: const EdgeInsets.all(7),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(10),
+            if (icon != null) ...[
+              Container(
+                padding: const EdgeInsets.all(7),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(icon, color: Colors.white, size: 20),
               ),
-              child: Icon(icon, color: Colors.white, size: 20),
-            ),
-            const SizedBox(width: 14),
+              const SizedBox(width: 14),
+            ],
             Text(
               label,
               style: const TextStyle(

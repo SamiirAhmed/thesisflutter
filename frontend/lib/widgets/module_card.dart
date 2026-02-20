@@ -21,17 +21,15 @@ class ModuleCard extends StatelessWidget {
 
   static IconData _iconFor(String key) {
     switch (key.toLowerCase()) {
-      // ── Teacher-specific module keys ───────────────────────────────────
-      case 'course_appeal':
-        return Icons.assignment_turned_in_rounded;
-      case 'notifications':
-      case 'coursework_notifications':
-      case 'notification':
-        return Icons.notifications_active_rounded;
-      case 'report':
-      case 'reports':
-        return Icons.bar_chart_rounded;
-      // ── Shared / student module keys ────────────────────────────────────
+      case 'exam_appeal':
+      case 'exam appeal':
+        return Icons.quiz_rounded;
+      case 'class_issue':
+      case 'class issue':
+        return Icons.class_rounded;
+      case 'campus_environment':
+      case 'campus environment':
+        return Icons.apartment_rounded;
       case 'appeals':
         return Icons.assignment_turned_in_rounded;
       case 'complaints':
@@ -40,16 +38,6 @@ class ModuleCard extends StatelessWidget {
         return Icons.analytics_rounded;
       case 'finance':
         return Icons.account_balance_wallet_rounded;
-      case 'classes':
-        return Icons.groups_rounded;
-      case 'attendance':
-        return Icons.how_to_reg_rounded;
-      case 'research':
-        return Icons.biotech_rounded;
-      case 'schedule':
-        return Icons.calendar_today_rounded;
-      case 'grading':
-        return Icons.grade_rounded;
       default:
         return Icons.grid_view_rounded;
     }
@@ -97,10 +85,10 @@ class ModuleCard extends StatelessWidget {
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
-                fontWeight: FontWeight.w700,
-                fontSize: 14,
+                fontWeight: FontWeight.w800,
+                fontSize: 15,
                 color: AppColors.textPrimary,
-                height: 1.3,
+                height: 1.2,
               ),
             ),
           ],

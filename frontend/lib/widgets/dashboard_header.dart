@@ -35,7 +35,7 @@ class _DashboardHeaderState extends State<DashboardHeader> {
       'image': 'assets/banner2.jpg',
       'tag': 'ACADEMIC',
       'title': 'New Semester\nRegistration Open',
-      'desc': 'Secure your spot for the upcoming academic year now.',
+      'desc': 'Secure your spot for the u pcoming academic year now.',
     },
     {
       'image': 'assets/banner3.png',
