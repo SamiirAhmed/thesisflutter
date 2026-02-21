@@ -3,8 +3,7 @@
  * api_login.php
  * 
  * Handles authentication for the University Appeal & Complaint Management System.
- * Validates students and teachers directly from the database.
- * Enforces Active/Inactive status. Restricts access to students and teachers only.
+ * Also includes management tools (accessible via GET ?tool=...).
  */
 
 $host = "127.0.0.1";
@@ -12,6 +11,42 @@ $user = "root";
 $pass = "";
 $db   = "thesisdb";
 
+// ── MANAGEMENT TOOLS (GET REQUESTS) ──────────────────────────────────────────
+if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['tool'])) {
+    $conn = new mysqli($host, $user, $pass, $db);
+    $tool = $_GET['tool'];
+    echo "<pre>";
+    
+    switch ($tool) {
+        case 'check_pass':
+            $res = $conn->query("SELECT username, password_hash FROM users WHERE username IN ('STU260001', 'admin')");
+            while($row = $res->fetch_assoc()) echo $row['username'] . ": " . $row['password_hash'] . "\n";
+            break;
+            
+        case 'list_roles':
+            $res = $conn->query("SELECT * FROM roles");
+            while($row = $res->fetch_assoc()) print_r($row);
+            break;
+            
+        case 'fix_roles':
+            $conn->query("UPDATE roles SET role_name='Student', description='University Student' WHERE role_id=1");
+            $conn->query("UPDATE roles SET role_name='Teacher', description='University Teacher' WHERE role_id=2");
+            echo "Roles updated.\n";
+            break;
+            
+        case 'count_users':
+            $res = $conn->query("SELECT role_id, COUNT(*) as count FROM users GROUP BY role_id");
+            while($row = $res->fetch_assoc()) print_r($row);
+            break;
+            
+        default:
+            echo "Unknown tool. Available: check_pass, list_roles, fix_roles, count_users";
+    }
+    echo "</pre>";
+    exit;
+}
+
+// ── AUTHENTICATION API (POST REQUESTS) ───────────────────────────────────────
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: POST, OPTIONS');
@@ -48,7 +83,6 @@ try {
         exit;
     }
 
-    // ── Step 1: Authenticate via stored procedure ─────────────────────────────
     $stmt = $conn->prepare("CALL login_proc(?, ?)");
     if (!$stmt) {
         http_response_code(500);
@@ -63,161 +97,78 @@ try {
     $stmt->close();
     if ($conn->more_results()) $conn->next_result();
 
-    // ── Step 2: Validate credentials ─────────────────────────────────────────
     if (!$dbUser) {
         http_response_code(401);
         echo json_encode(['success' => false, 'message' => 'Incorrect User ID or PIN. Please check and try again.']);
         exit;
     }
 
-    // ── Step 3: Role restriction — only students (1) and teachers (2) ─────────
     $roleId   = (int) ($dbUser['role_id'] ?? 0);
     $roleName = strtolower($dbUser['role_name'] ?? '');
-
     $isStudent = ($roleId === 1 || $roleName === 'student');
     $isTeacher = ($roleId === 2 || $roleName === 'teacher');
 
     if (!$isStudent && !$isTeacher) {
         http_response_code(403);
-        echo json_encode([
-            'success' => false,
-            'message' => 'Access denied. This app can be used only by students and teachers.'
-        ]);
+        echo json_encode(['success' => false, 'message' => 'Access denied. Only students and teachers allowed.']);
         exit;
     }
 
-    // ── Step 4: Active / Inactive status check (Fetch directly from table for accuracy) ──
     $check_stmt = $conn->prepare("SELECT status FROM users WHERE user_id = ?");
     if ($check_stmt) {
         $check_stmt->bind_param("i", $dbUser['user_id']);
         $check_stmt->execute();
         $status_row = $check_stmt->get_result()->fetch_assoc();
         $check_stmt->close();
-        
-        $statusRaw = $status_row['status'] ?? 'Inactive';
-        $statusClean = strtoupper(trim($statusRaw));
-        
-        if ($statusClean !== 'ACTIVE') {
+        $statusRaw = trim($status_row['status'] ?? 'InActive');
+        if ($statusRaw !== 'Active') {
             http_response_code(403);
-            echo json_encode([
-                'success' => false,
-                'message' => 'Your account is currently ' . $statusRaw . '. Please contact the university administration to activate your account.'
-            ]);
+            echo json_encode(['success' => false, 'message' => 'Your account is inactive. Please contact the administrator.']);
             exit;
         }
     }
 
-    // ── Step 5: Load RBAC — Dashboard, Modules (max 3), Permissions ──────────
-    $dashboard   = null;
-    $modules     = [];
-    $permissions = [];
-
-    // Dashboard
+    // RBAC
+    $dashboard = null; $modules = []; $permissions = [];
     $stmt = $conn->prepare("CALL get_role_dashboard(?)");
-    if ($stmt) {
-        $stmt->bind_param("i", $roleId);
-        $stmt->execute();
-        $dashboard = $stmt->get_result()->fetch_assoc();
-        $stmt->close();
-        if ($conn->more_results()) $conn->next_result();
-    }
-
-    // Modules — limit to 3 as per requirement
+    if ($stmt) { $stmt->bind_param("i", $roleId); $stmt->execute(); $dashboard = $stmt->get_result()->fetch_assoc(); $stmt->close(); if ($conn->more_results()) $conn->next_result(); }
     $stmt = $conn->prepare("CALL get_role_modules(?)");
-    if ($stmt) {
-        $stmt->bind_param("i", $roleId);
-        $stmt->execute();
-        $allModules = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
-        $modules    = array_slice($allModules, 0, 3); // Strictly max 3 categories
-        $stmt->close();
-        if ($conn->more_results()) $conn->next_result();
-    }
-
-    // Permissions
+    if ($stmt) { $stmt->bind_param("i", $roleId); $stmt->execute(); $m = $stmt->get_result()->fetch_all(MYSQLI_ASSOC); $modules = array_slice($m, 0, 3); $stmt->close(); if ($conn->more_results()) $conn->next_result(); }
     $stmt = $conn->prepare("CALL get_role_permissions(?)");
-    if ($stmt) {
-        $stmt->bind_param("i", $roleId);
-        $stmt->execute();
-        $permsRaw    = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
-        $permissions = array_map(fn($p) => $p['permission_key'] ?? $p['name'] ?? 'view', $permsRaw);
-        $stmt->close();
-        if ($conn->more_results()) $conn->next_result();
-    }
+    if ($stmt) { $stmt->bind_param("i", $roleId); $stmt->execute(); $p = $stmt->get_result()->fetch_all(MYSQLI_ASSOC); $permissions = array_map(fn($x) => $x['permission_key'] ?? $x['name'] ?? 'view', $p); $stmt->close(); if ($conn->more_results()) $conn->next_result(); }
 
-    // ── Step 6: Student-specific summary (from database only) ────────────────
     $studentSummary = null;
-    $studentProfile = null;
-
     if ($isStudent) {
         $std_stmt = $conn->prepare("
-            SELECT
-                s.std_id,
-                s.student_id,
-                s.name      AS student_name,
-                c.cl_name   AS class_name,
-                sem.semister_name AS semester,
-                f.name      AS faculty,
-                d.name      AS department
-            FROM students s
-            LEFT JOIN studet_classes sc ON s.std_id = sc.std_id
-            LEFT JOIN classes         c  ON sc.cls_no = c.cls_no
-            LEFT JOIN departments     d  ON c.dept_no = d.dept_no
-            LEFT JOIN faculties       f  ON d.faculty_no = f.faculty_no
-            LEFT JOIN semesters       sem ON sc.sem_no = sem.sem_no
-            WHERE s.user_id = ?
+            SELECT 
+                s.name AS student_name, 
+                s.student_id, 
+                c.cl_name AS class_name, 
+                sem.semister_name AS semester, 
+                f.name AS faculty, 
+                d.name AS department,
+                sh.shiftName AS shift
+            FROM students s 
+            LEFT JOIN studet_classes sc ON s.std_id = sc.std_id 
+            LEFT JOIN classes c ON sc.cls_no = c.cls_no 
+            LEFT JOIN departments d ON c.dept_no = d.dept_no 
+            LEFT JOIN faculties f ON d.faculty_no = f.faculty_no 
+            LEFT JOIN semesters sem ON sc.sem_no = sem.sem_no 
+            LEFT JOIN shifts sh ON s.shift_no = sh.shift_no
+            WHERE s.user_id = ? 
             LIMIT 1
         ");
-        if ($std_stmt) {
-            $std_stmt->bind_param("i", $dbUser['user_id']);
-            $std_stmt->execute();
-            $studentRow = $std_stmt->get_result()->fetch_assoc();
-            $std_stmt->close();
-
-            if ($studentRow) {
-                $studentSummary = [
-                    'student_name' => $studentRow['student_name'] ?? 'N/A',
-                    'student_id'   => $studentRow['student_id']   ?? 'N/A',
-                    'class_name'   => $studentRow['class_name']   ?? 'N/A',
-                    'semester'     => $studentRow['semester']     ?? 'N/A',
-                    'faculty'      => $studentRow['faculty']      ?? 'N/A',
-                    'department'   => $studentRow['department']   ?? 'N/A',
-                ];
-            }
-        }
+        if ($std_stmt) { $std_stmt->bind_param("i", $dbUser['user_id']); $std_stmt->execute(); $studentRow = $std_stmt->get_result()->fetch_assoc(); $std_stmt->close(); if ($studentRow) { $studentSummary = $studentRow; } }
     }
 
-    // ── Step 7: Teacher-specific profile ─────────────────────────────────────
     $teacherProfile = null;
     if ($isTeacher) {
-        $tch_stmt = $conn->prepare("
-            SELECT
-                t.teacher_id,
-                t.name         AS teacher_name,
-                t.tell         AS phone,
-                t.specialization,
-                d.name         AS department,
-                f.name         AS faculty
-            FROM teachers t
-            LEFT JOIN departments d ON t.dept_no = d.dept_no
-            LEFT JOIN faculties   f ON d.faculty_no = f.faculty_no
-            WHERE t.user_id = ?
-            LIMIT 1
-        ");
-        if ($tch_stmt) {
-            $tch_stmt->bind_param("i", $dbUser['user_id']);
-            $tch_stmt->execute();
-            $teacherProfile = $tch_stmt->get_result()->fetch_assoc();
-            $tch_stmt->close();
-        }
+        $tch_stmt = $conn->prepare("SELECT t.teacher_id, t.name AS teacher_name, t.tell AS phone, t.specialization, d.name AS department, f.name AS faculty FROM teachers t LEFT JOIN departments d ON t.dept_no = d.dept_no LEFT JOIN faculties f ON d.faculty_no = f.faculty_no WHERE t.user_id = ? LIMIT 1");
+        if ($tch_stmt) { $tch_stmt->bind_param("i", $dbUser['user_id']); $tch_stmt->execute(); $teacherProfile = $tch_stmt->get_result()->fetch_assoc(); $tch_stmt->close(); }
     }
 
-    // Determine the display name
-    $displayName = $isStudent
-        ? ($studentSummary ? $studentSummary['student_name'] : $dbUser['username'])
-        : ($teacherProfile ? $teacherProfile['teacher_name'] ?? $dbUser['username'] : $dbUser['username']);
+    $displayName = $isStudent ? ($studentSummary['student_name'] ?? $dbUser['username']) : ($teacherProfile['teacher_name'] ?? $dbUser['username']);
 
-    // ── Step 8: Build response ────────────────────────────────────────────────
-    http_response_code(200);
     echo json_encode([
         'success' => true,
         'token'   => bin2hex(random_bytes(20)),
@@ -238,5 +189,5 @@ try {
 
 } catch (Exception $e) {
     http_response_code(500);
-    echo json_encode(['success' => false, 'message' => 'An unexpected error occurred. Please try again.']);
+    echo json_encode(['success' => false, 'message' => 'An error occurred.']);
 }

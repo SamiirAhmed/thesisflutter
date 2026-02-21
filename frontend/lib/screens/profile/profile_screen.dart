@@ -223,23 +223,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 child: CircleAvatar(
                   radius: 40,
                   backgroundColor: Colors.white.withOpacity(0.2),
-                  backgroundImage:
-                      profile['profile_image'] != null &&
-                          profile['profile_image'].toString().isNotEmpty
-                      ? NetworkImage(profile['profile_image'].toString())
-                      : null,
-                  child:
-                      (profile['profile_image'] == null ||
-                          profile['profile_image'].toString().isEmpty)
-                      ? Text(
-                          initials,
-                          style: const TextStyle(
-                            fontSize: 32,
-                            fontWeight: FontWeight.w900,
-                            color: Colors.white,
-                          ),
-                        )
-                      : null,
+                  child: Text(
+                    initials,
+                    style: const TextStyle(
+                      fontSize: 32,
+                      fontWeight: FontWeight.w900,
+                      color: Colors.white,
+                    ),
+                  ),
                 ),
               ),
               const SizedBox(height: 12),
@@ -326,244 +317,254 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
         ),
 
-        // ── Scrollable detail cards ──────────────────────────────────────
+        // ── Scrollable detail cards with pull-to-refresh ─────────────────
         Expanded(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 30),
-            child: Column(
-              children: [
-                // Summary Cards (ID, HEMIS, Class, Semester)
-                if (isStudent) ...[
-                  GridView.count(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    crossAxisCount: 2,
-                    mainAxisSpacing: 12,
-                    crossAxisSpacing: 12,
-                    childAspectRatio: 1.6,
-                    children: [
-                      _buildSummaryCard(
-                        'Student ID',
-                        profile['student_id']?.toString() ?? 'N/A',
-                        Icons.person_rounded,
-                        Colors.green.shade50,
-                        Colors.green,
-                      ),
-                      _buildSummaryCard(
-                        'NIRA',
-                        profile['nira']?.toString() ?? 'N/A',
-                        Icons.check_box_rounded,
-                        Colors.blue.shade50,
-                        Colors.blue,
-                      ),
-                      _buildSummaryCard(
-                        'Class',
-                        profile['class_name']?.toString() ?? 'N/A',
-                        Icons.bookmark_rounded,
-                        Colors.orange.shade50,
-                        Colors.orange,
-                      ),
-                      _buildSummaryCard(
-                        'Semester',
-                        profile['semester']?.toString() ?? 'N/A',
-                        Icons.calendar_month_rounded,
-                        Colors.purple.shade50,
-                        Colors.purple,
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 20),
-                ],
+          child: RefreshIndicator(
+            onRefresh: _loadProfile,
+            color: AppColors.primary,
+            child: SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(
+                parent: BouncingScrollPhysics(),
+              ),
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 30),
+              child: Column(
+                children: [
+                  // Summary Cards (ID, HEMIS, Class, Semester)
+                  if (isStudent) ...[
+                    GridView.count(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      crossAxisCount: 2,
+                      mainAxisSpacing: 12,
+                      crossAxisSpacing: 12,
+                      childAspectRatio: 1.6,
+                      children: [
+                        _buildSummaryCard(
+                          'Student ID',
+                          profile['student_id']?.toString() ?? 'N/A',
+                          Icons.person_rounded,
+                          Colors.green.shade50,
+                          Colors.green,
+                        ),
+                        _buildSummaryCard(
+                          'NIRA',
+                          profile['nira']?.toString() ?? 'N/A',
+                          Icons.check_box_rounded,
+                          Colors.blue.shade50,
+                          Colors.blue,
+                        ),
+                        _buildSummaryCard(
+                          'Class',
+                          profile['class_name']?.toString() ?? 'N/A',
+                          Icons.bookmark_rounded,
+                          Colors.orange.shade50,
+                          Colors.orange,
+                        ),
+                        _buildSummaryCard(
+                          'Semester',
+                          profile['semester']?.toString() ?? 'N/A',
+                          Icons.calendar_month_rounded,
+                          Colors.purple.shade50,
+                          Colors.purple,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+                  ],
 
-                // 1. Role-specific Information (Moved to top)
-                if (isStudent) ...[
+                  // 1. Role-specific Information (Moved to top)
+                  if (isStudent) ...[
+                    _buildSection(
+                      title: 'Academic Information',
+                      icon: Icons.school_rounded,
+                      children: [
+                        _buildInfoRow(
+                          'Campus',
+                          profile['campus_name']?.toString() ?? 'N/A',
+                          Icons.apartment_rounded,
+                        ),
+                        _buildInfoRow(
+                          'Shift',
+                          profile['shift']?.toString() ?? 'N/A',
+                          Icons.schedule_rounded,
+                        ),
+                        _buildInfoRow(
+                          'Entry Time',
+                          profile['entry_time']?.toString() ?? 'N/A',
+                          Icons.access_time_rounded,
+                        ),
+                      ],
+                    ),
+                  ] else ...[
+                    _buildSection(
+                      title: 'Teaching Information',
+                      icon: Icons.school_rounded,
+                      children: [
+                        _buildInfoRow(
+                          'Teacher ID',
+                          profile['teacher_id']?.toString() ?? 'N/A',
+                          Icons.numbers_rounded,
+                        ),
+                        _buildInfoRow(
+                          'Specialization',
+                          profile['specialization']?.toString() ?? 'N/A',
+                          Icons.auto_stories_rounded,
+                        ),
+                        _buildInfoRow(
+                          'Department',
+                          profile['department']?.toString() ?? 'N/A',
+                          Icons.apartment_rounded,
+                        ),
+                      ],
+                    ),
+                  ],
+
+                  const SizedBox(height: 16),
+
+                  // 2. Educational Background
                   _buildSection(
-                    title: 'Academic Information',
-                    icon: Icons.school_rounded,
+                    title: 'Educational Background',
+                    icon: Icons.assignment_rounded,
                     children: [
                       _buildInfoRow(
-                        'Campus',
-                        profile['campus_name']?.toString() ?? 'N/A',
-                        Icons.apartment_rounded,
-                      ),
-                      _buildInfoRow(
-                        'Mode',
-                        profile['study_mode']?.toString() ?? 'N/A',
+                        'School',
+                        profile['previous_school']?.toString() ?? 'N/A',
                         Icons.school_rounded,
                       ),
                       _buildInfoRow(
-                        'Entry Time',
-                        profile['entry_time']?.toString() ?? 'N/A',
-                        Icons.access_time_rounded,
+                        'Graduation Year',
+                        profile['grad_year']?.toString() ?? 'N/A',
+                        Icons.calendar_today_rounded,
+                      ),
+                      _buildInfoRow(
+                        'Grade',
+                        profile['grade']?.toString() ?? 'N/A',
+                        Icons.star_rounded,
                       ),
                     ],
                   ),
-                ] else ...[
+
+                  const SizedBox(height: 16),
+
+                  // 2. Personal Information (Replaces Account Information)
                   _buildSection(
-                    title: 'Teaching Information',
-                    icon: Icons.school_rounded,
+                    title: 'Personal Information',
+                    icon: Icons.person_rounded,
                     children: [
                       _buildInfoRow(
-                        'Teacher ID',
-                        profile['teacher_id']?.toString() ?? 'N/A',
-                        Icons.numbers_rounded,
+                        'Gender',
+                        profile['gender']?.toString() ?? 'N/A',
+                        Icons.person_outline_rounded,
                       ),
                       _buildInfoRow(
-                        'Specialization',
-                        profile['specialization']?.toString() ?? 'N/A',
-                        Icons.auto_stories_rounded,
+                        'Place of Birth',
+                        profile['pob']?.toString() ?? 'N/A',
+                        Icons.location_on_rounded,
                       ),
                       _buildInfoRow(
-                        'Department',
-                        profile['department']?.toString() ?? 'N/A',
-                        Icons.apartment_rounded,
+                        'Address',
+                        profile['address']?.toString() ?? 'N/A',
+                        Icons.home_rounded,
+                      ),
+                      if (isStudent)
+                        _buildInfoRow(
+                          "Mother's Name",
+                          profile['mother_name']?.toString() ?? 'N/A',
+                          Icons.group_rounded,
+                        ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // 3. Contact Information
+                  _buildSection(
+                    title: 'Contact Information',
+                    icon: Icons.phone_rounded,
+                    children: [
+                      _buildInfoRow(
+                        'Phone',
+                        profile['phone']?.toString() ?? 'N/A',
+                        Icons.phone_iphone_rounded,
+                      ),
+                      _buildInfoRow(
+                        'Email',
+                        profile['email']?.toString() ?? 'N/A',
+                        Icons.mail_outline_rounded,
+                      ),
+                      _buildInfoRow(
+                        'Emergency Contact',
+                        profile['emergency_contact']?.toString() ?? 'N/A',
+                        Icons.star_rounded,
                       ),
                     ],
                   ),
-                ],
 
-                const SizedBox(height: 16),
+                  const SizedBox(height: 16),
 
-                // 2. Educational Background
-                _buildSection(
-                  title: 'Educational Background',
-                  icon: Icons.assignment_rounded,
-                  children: [
-                    _buildInfoRow(
-                      'School',
-                      profile['previous_school']?.toString() ?? 'N/A',
-                      Icons.school_rounded,
-                    ),
-                    _buildInfoRow(
-                      'Graduation Year',
-                      profile['grad_year']?.toString() ?? 'N/A',
-                      Icons.calendar_today_rounded,
-                    ),
-                    _buildInfoRow(
-                      'Grade',
-                      profile['grade']?.toString() ?? 'N/A',
-                      Icons.star_rounded,
-                    ),
-                  ],
-                ),
-
-                const SizedBox(height: 16),
-
-                // 2. Personal Information (Replaces Account Information)
-                _buildSection(
-                  title: 'Personal Information',
-                  icon: Icons.person_rounded,
-                  children: [
-                    _buildInfoRow(
-                      'Gender',
-                      profile['gender']?.toString() ?? 'N/A',
-                      Icons.person_outline_rounded,
-                    ),
-                    _buildInfoRow(
-                      'Place of Birth',
-                      profile['pob']?.toString() ?? 'N/A',
-                      Icons.location_on_rounded,
-                    ),
-                    _buildInfoRow(
-                      'Address',
-                      profile['address']?.toString() ?? 'N/A',
-                      Icons.home_rounded,
-                    ),
-                    if (isStudent)
-                      _buildInfoRow(
-                        "Mother's Name",
-                        profile['mother_name']?.toString() ?? 'N/A',
-                        Icons.group_rounded,
+                  // 3. Settings (Dark Mode)
+                  _buildSection(
+                    title: 'App Settings',
+                    icon: Icons.settings_rounded,
+                    children: [
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: Icon(
+                          themeProvider.isDarkMode
+                              ? Icons.dark_mode_rounded
+                              : Icons.light_mode_rounded,
+                          color: themeProvider.isDarkMode
+                              ? Colors.amber
+                              : Colors.orange,
+                        ),
+                        title: const Text(
+                          'Dark Mode',
+                          style: TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                        trailing: Switch(
+                          value: themeProvider.isDarkMode,
+                          activeColor: AppColors.primary,
+                          onChanged: (val) => themeProvider.toggleTheme(),
+                        ),
                       ),
-                  ],
-                ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
 
-                const SizedBox(height: 16),
-
-                // 3. Contact Information
-                _buildSection(
-                  title: 'Contact Information',
-                  icon: Icons.phone_rounded,
-                  children: [
-                    _buildInfoRow(
-                      'Phone',
-                      profile['phone']?.toString() ?? 'N/A',
-                      Icons.phone_iphone_rounded,
-                    ),
-                    _buildInfoRow(
-                      'Email',
-                      profile['email']?.toString() ?? 'N/A',
-                      Icons.mail_outline_rounded,
-                    ),
-                    _buildInfoRow(
-                      'Emergency Contact',
-                      profile['emergency_contact']?.toString() ?? 'N/A',
-                      Icons.star_rounded,
-                    ),
-                  ],
-                ),
-
-                const SizedBox(height: 16),
-
-                // 3. Settings (Dark Mode)
-                _buildSection(
-                  title: 'App Settings',
-                  icon: Icons.settings_rounded,
-                  children: [
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: Icon(
-                        themeProvider.isDarkMode
-                            ? Icons.dark_mode_rounded
-                            : Icons.light_mode_rounded,
-                        color: themeProvider.isDarkMode
-                            ? Colors.amber
-                            : Colors.orange,
-                      ),
-                      title: const Text(
-                        'Dark Mode',
-                        style: TextStyle(fontWeight: FontWeight.w600),
-                      ),
-                      trailing: Switch(
-                        value: themeProvider.isDarkMode,
-                        activeColor: AppColors.primary,
-                        onChanged: (val) => themeProvider.toggleTheme(),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 24),
-
-                // 4. Logout Button
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    onPressed: () => ApiService.logout().then((_) {
-                      Navigator.of(
-                        context,
-                      ).pushNamedAndRemoveUntil('/login', (route) => false);
-                    }),
-                    icon: const Icon(Icons.logout_rounded, color: Colors.white),
-                    label: const Text(
-                      'Logout',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w800,
+                  // 4. Logout Button
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: () => ApiService.logout().then((_) {
+                        Navigator.of(
+                          context,
+                        ).pushNamedAndRemoveUntil('/login', (route) => false);
+                      }),
+                      icon: const Icon(
+                        Icons.logout_rounded,
                         color: Colors.white,
                       ),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.danger,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
+                      label: const Text(
+                        'Logout',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
+                        ),
                       ),
-                      elevation: 0,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.danger,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        elevation: 0,
+                      ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),

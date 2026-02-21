@@ -58,8 +58,8 @@ class _MainDashboardState extends State<MainDashboard> {
         _userData = jsonDecode(stored) as Map<String, dynamic>;
         _isLoading = false;
       });
-      // Verify account status in background
-      _verifyStatus();
+      // Fetch fresh data from API in background and update
+      _refreshFromApi();
     } else {
       // No local session — send back to login
       setState(() => _isLoading = false);
@@ -69,15 +69,40 @@ class _MainDashboardState extends State<MainDashboard> {
     }
   }
 
-  Future<void> _verifyStatus() async {
-    // fetchMe will return success: false if status is not ACTIVE
+  /// Fetches the latest profile from the API and updates the local cache.
+  /// This ensures the dashboard always reflects the latest database state
+  /// (e.g. mode, shift, class, semester changes).
+  Future<void> _refreshFromApi() async {
     final result = await ApiService.fetchMe();
     if (!mounted) return;
 
-    if (result['success'] == false) {
+    if (result['success'] == true) {
+      final freshProfile = result['profile'] as Map<String, dynamic>;
+
+      // Merge the fresh profile data into existing userData
+      // Keep modules and other login-only data, but update all profile fields
+      final merged = Map<String, dynamic>.from(_userData ?? {});
+      freshProfile.forEach((key, value) {
+        merged[key] = value;
+      });
+      // Sync name field (login uses 'name', profile uses 'full_name')
+      if (freshProfile['full_name'] != null) {
+        merged['name'] = freshProfile['full_name'];
+      }
+
+      // Save updated data to local storage
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('user_data', jsonEncode(merged));
+
+      if (mounted) {
+        setState(() => _userData = merged);
+      }
+    } else {
+      // Check if account was deactivated
       final msg = (result['message'] ?? '').toString().toLowerCase();
-      if (msg.contains('inactive') || msg.contains('unauthorized')) {
-        // Log them out and show reason
+      if (msg.contains('inactive') ||
+          msg.contains('unauthorized') ||
+          msg.contains('account')) {
         await _logout();
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -113,7 +138,11 @@ class _MainDashboardState extends State<MainDashboard> {
     final roleId = (_userData!['role_id'] as num?)?.toInt() ?? 0;
 
     if (roleId == _roleTeacher) {
-      return _TeacherShell(userData: _userData!, onLogout: _logout);
+      return _TeacherShell(
+        userData: _userData!,
+        onLogout: _logout,
+        onRefresh: _refreshFromApi,
+      );
     }
 
     // Fallback for students and any other allowed role
@@ -123,6 +152,7 @@ class _MainDashboardState extends State<MainDashboard> {
       userData: _userData!,
       modules: modules,
       onLogout: _logout,
+      onRefresh: _refreshFromApi,
     );
   }
 }
@@ -141,8 +171,13 @@ class _MainDashboardState extends State<MainDashboard> {
 class _TeacherShell extends StatefulWidget {
   final Map<String, dynamic> userData;
   final Future<void> Function() onLogout;
+  final Future<void> Function() onRefresh;
 
-  const _TeacherShell({required this.userData, required this.onLogout});
+  const _TeacherShell({
+    required this.userData,
+    required this.onLogout,
+    required this.onRefresh,
+  });
 
   @override
   State<_TeacherShell> createState() => _TeacherShellState();
@@ -271,11 +306,13 @@ class _StudentShell extends StatefulWidget {
   final Map<String, dynamic> userData;
   final List<Map<String, dynamic>> modules;
   final Future<void> Function() onLogout;
+  final Future<void> Function() onRefresh;
 
   const _StudentShell({
     required this.userData,
     required this.modules,
     required this.onLogout,
+    required this.onRefresh,
   });
 
   @override
@@ -294,7 +331,10 @@ class _StudentShellState extends State<_StudentShell> {
         widget.userData['role_name'] ?? (roleId == 1 ? 'Student' : 'User');
 
     final pages = <Widget>[
-      _StudentDashboardHome(userData: widget.userData),
+      _StudentDashboardHome(
+        userData: widget.userData,
+        onRefresh: widget.onRefresh,
+      ),
       const ComingSoonScreen(title: 'History'),
       const ProfileScreen(),
     ];
@@ -406,8 +446,12 @@ class _StudentShellState extends State<_StudentShell> {
 // ─────────────────────────────────────────────────────────────────────────────
 class _StudentDashboardHome extends StatelessWidget {
   final Map<String, dynamic> userData;
+  final Future<void> Function() onRefresh;
 
-  const _StudentDashboardHome({required this.userData});
+  const _StudentDashboardHome({
+    required this.userData,
+    required this.onRefresh,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -417,33 +461,41 @@ class _StudentDashboardHome extends StatelessWidget {
     final modules =
         (userData['modules'] as List?)?.cast<Map<String, dynamic>>() ?? [];
 
-    return SingleChildScrollView(
-      physics: const BouncingScrollPhysics(),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Gradient header
-          DashboardHeader(name: name, roleName: roleName, roleId: roleId),
+    return RefreshIndicator(
+      onRefresh: onRefresh,
+      color: AppColors.primary,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(
+          parent: BouncingScrollPhysics(),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Gradient header
+            DashboardHeader(name: name, roleName: roleName, roleId: roleId),
 
-          // Student academic summary
-          if (roleId == 6 && userData['student_summary'] != null)
-            _StudentSummaryCard(
-              summary: Map<String, dynamic>.from(
-                userData['student_summary'] as Map,
+            // Student academic summary
+            if (roleId == 6 && userData['student_summary'] != null)
+              _StudentSummaryCard(
+                summary: Map<String, dynamic>.from(
+                  userData['student_summary'] as Map,
+                ),
+              ),
+
+            // Modules from database
+            _StudentModulesSection(
+              modules: modules,
+              onModuleTap: (title) => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => ComingSoonScreen(title: title),
+                ),
               ),
             ),
 
-          // Modules from database
-          _StudentModulesSection(
-            modules: modules,
-            onModuleTap: (title) => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => ComingSoonScreen(title: title)),
-            ),
-          ),
-
-          const SizedBox(height: 24),
-        ],
+            const SizedBox(height: 24),
+          ],
+        ),
       ),
     );
   }
