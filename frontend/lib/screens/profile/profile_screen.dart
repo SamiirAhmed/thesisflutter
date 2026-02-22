@@ -21,8 +21,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   void initState() {
     super.initState();
+    // Refresh every time the screen is initialized
     _loadProfile();
   }
+
+  // To make it even more dynamic, we can refresh when returning to this screen
+  // by using a listener or just ensuring _loadProfile is called.
 
   Future<void> _loadProfile() async {
     setState(() {

@@ -16,6 +16,8 @@ import 'package:frontend/widgets/module_card.dart';
 // ── Common screens ────────────────────────────────────────────────────────────
 import 'package:frontend/screens/profile/profile_screen.dart';
 import 'package:frontend/screens/common/coming_soon_screen.dart';
+import 'package:frontend/screens/exam/exam_appeal_screen.dart';
+import 'package:frontend/screens/exam/exam_tracking_screen.dart';
 
 /// Root dashboard shell.
 ///
@@ -485,12 +487,30 @@ class _StudentDashboardHome extends StatelessWidget {
             // Modules from database
             _StudentModulesSection(
               modules: modules,
-              onModuleTap: (title) => Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => ComingSoonScreen(title: title),
-                ),
-              ),
+              onModuleTap: (title, key) {
+                if (key == 'course_appeal' ||
+                    title.toLowerCase().contains('exam')) {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const ExamAppealScreen()),
+                  );
+                } else if (key == 'track_appeal' ||
+                    title.toLowerCase().contains('track')) {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const ExamTrackingScreen(),
+                    ),
+                  );
+                } else {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => ComingSoonScreen(title: title),
+                    ),
+                  );
+                }
+              },
             ),
 
             const SizedBox(height: 24),
@@ -638,7 +658,7 @@ class _StudentSummaryCard extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 class _StudentModulesSection extends StatelessWidget {
   final List<Map<String, dynamic>> modules;
-  final void Function(String title) onModuleTap;
+  final void Function(String title, String key) onModuleTap;
 
   const _StudentModulesSection({
     required this.modules,
@@ -691,7 +711,7 @@ class _StudentModulesSection extends StatelessWidget {
                 return ModuleCard(
                   title: title,
                   moduleKey: key,
-                  onTap: () => onModuleTap(title),
+                  onTap: () => onModuleTap(title, key),
                 );
               },
             )

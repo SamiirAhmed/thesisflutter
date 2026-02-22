@@ -150,7 +150,7 @@ class ApiService {
   // Profile
   // ─────────────────────────────────────────────────────────────────────────
 
-  /// Fetch the full user profile from GET /api_profile.php.
+  /// Fetch the full user profile. Routes to api_student.php or api_teacher.php based on role.
   static Future<Map<String, dynamic>> fetchMe() async {
     try {
       final token = await _getToken();
@@ -158,10 +158,24 @@ class ApiService {
         return {'success': false, 'message': 'Not logged in.'};
       }
 
+      final userData = await getLocalUserData();
+      if (userData == null) {
+        return {'success': false, 'message': 'User role not found.'};
+      }
+
+      // Determine endpoint based on role ID (1/6 = Student, 2 = Teacher)
+      final int roleId = userData['role_id'] ?? 0;
+      String endpoint = 'api_student.php';
+      if (roleId == 2) {
+        endpoint = 'api_teacher.php';
+      } else if (roleId != 1 && roleId != 6) {
+        return {'success': false, 'message': 'Invalid user role.'};
+      }
+
       final baseUrl = await getBaseUrl();
       final headers = await _authHeaders(token);
       final response = await http
-          .get(Uri.parse('$baseUrl/api_profile.php'), headers: headers)
+          .get(Uri.parse('$baseUrl/$endpoint'), headers: headers)
           .timeout(const Duration(seconds: 15));
 
       if (response.body.trim().startsWith('<')) {
@@ -180,6 +194,89 @@ class ApiService {
       };
     } on Exception catch (e) {
       return {'success': false, 'message': 'Connection error: ${e.toString()}'};
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Exam Appeal
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /// Fetch student subjects for the current semester.
+  static Future<Map<String, dynamic>> getExamSubjects() async {
+    try {
+      final token = await _getToken();
+      final baseUrl = await getBaseUrl();
+      final headers = await _authHeaders(token ?? '');
+
+      final response = await http
+          .get(
+            Uri.parse('$baseUrl/Exam/api_exam.php?action=get_subjects'),
+            headers: headers,
+          )
+          .timeout(const Duration(seconds: 15));
+
+      if (response.body.trim().startsWith('<')) {
+        return {'success': false, 'message': 'Exam service unavailable.'};
+      }
+
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    } catch (e) {
+      return {'success': false, 'message': 'Connection error: $e'};
+    }
+  }
+
+  /// Submit an exam appeal.
+  static Future<Map<String, dynamic>> submitExamAppeal(
+    List<Map<String, dynamic>> selectedSubjects,
+  ) async {
+    try {
+      final token = await _getToken();
+      final baseUrl = await getBaseUrl();
+      final headers = await _authHeaders(token ?? '');
+
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/Exam/api_exam.php?action=submit_appeal'),
+            headers: headers,
+            body: jsonEncode({'selected_subjects': selectedSubjects}),
+          )
+          .timeout(const Duration(seconds: 15));
+
+      if (response.body.trim().startsWith('<')) {
+        return {'success': false, 'message': 'Submission service unavailable.'};
+      }
+
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    } catch (e) {
+      return {'success': false, 'message': 'Connection error: $e'};
+    }
+  }
+
+  /// Track appeal status by reference number.
+  static Future<Map<String, dynamic>> trackExamAppeal(
+    String referenceNo,
+  ) async {
+    try {
+      final token = await _getToken();
+      final baseUrl = await getBaseUrl();
+      final headers = await _authHeaders(token ?? '');
+
+      final response = await http
+          .get(
+            Uri.parse(
+              '$baseUrl/Exam/api_exam.php?action=track_appeal&reference_no=$referenceNo',
+            ),
+            headers: headers,
+          )
+          .timeout(const Duration(seconds: 15));
+
+      if (response.body.trim().startsWith('<')) {
+        return {'success': false, 'message': 'Tracking service unavailable.'};
+      }
+
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    } catch (e) {
+      return {'success': false, 'message': 'Connection error: $e'};
     }
   }
 
