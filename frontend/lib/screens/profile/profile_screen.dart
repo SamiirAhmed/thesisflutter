@@ -432,7 +432,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     children: [
                       _buildInfoRow(
                         'School',
-                        profile['previous_school']?.toString() ?? 'N/A',
+                        profile['school_name']?.toString() ?? 'N/A',
                         Icons.school_rounded,
                       ),
                       _buildInfoRow(
@@ -495,11 +495,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         'Email',
                         profile['email']?.toString() ?? 'N/A',
                         Icons.mail_outline_rounded,
-                      ),
-                      _buildInfoRow(
-                        'Emergency Contact',
-                        profile['emergency_contact']?.toString() ?? 'N/A',
-                        Icons.star_rounded,
                       ),
                     ],
                   ),

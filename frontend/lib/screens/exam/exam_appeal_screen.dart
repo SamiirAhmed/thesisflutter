@@ -186,61 +186,13 @@ class _ExamAppealScreenState extends State<ExamAppealScreen> {
                 Icons.cancel_outlined,
                 Colors.red,
                 () {
-                  _showNoPaperNotice();
+                  Navigator.pop(context);
                 },
               ),
             ),
           ],
         ),
       ],
-    );
-  }
-
-  void _showNoPaperNotice() {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-        title: const Row(
-          children: [
-            Icon(Icons.info_outline, color: Colors.red),
-            SizedBox(width: 10),
-            Text(
-              "Notice",
-              style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
-            ),
-          ],
-        ),
-        content: const Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              "Please contact the Faculty Office.",
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            SizedBox(height: 15),
-            Text(
-              "Note: A student can appeal a maximum of 3 subjects.",
-              style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic),
-            ),
-          ],
-        ),
-        actions: [
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context); // Close dialog
-              Navigator.pop(context); // Return to Dashboard
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.indigo,
-              foregroundColor: Colors.white,
-            ),
-            child: const Text("OK, BACK TO DASHBOARD"),
-          ),
-        ],
-      ),
     );
   }
 

@@ -913,6 +913,21 @@ class _StudentDrawer extends StatelessWidget {
                     onTabSelected(2);
                   },
                 ),
+                _drawerItem(
+                  context,
+                  icon: Icons.search_rounded,
+                  label: 'Track Appeal',
+                  isActive: false,
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const ExamTrackingScreen(),
+                      ),
+                    );
+                  },
+                ),
 
                 if (modules.isNotEmpty) ...[
                   Padding(

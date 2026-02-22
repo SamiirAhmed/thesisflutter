@@ -73,79 +73,75 @@ try {
         echo json_encode(['success' => true, 'subjects' => $subjects]);
     } 
     elseif ($action === 'submit_appeal') {
+        // Enable strict error reporting for mysqli to catch FK errors
+        mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
+        
         $data = json_decode(file_get_contents('php://input'), true);
         if (!$data || !isset($data['selected_subjects'])) {
             throw new Exception("Invalid request data.");
         }
 
-        $selected = $data['selected_subjects']; // Array of {sub_cl_no, marks, reason, sc_no}
-        
+        $selected = $data['selected_subjects']; 
         if (count($selected) > 3) {
             throw new Exception("Maximum 3 subjects allowed.");
         }
 
         $conn->begin_transaction();
 
-        $reference_no = "APP-" . strtoupper(uniqid());
-        $responses = [];
+        try {
+            $reference_no = "APP-" . strtoupper(uniqid());
 
-        foreach ($selected as $item) {
-            $sub_cl_no = $item['sub_cl_no'];
-            $reason = $item['reason'];
-            $requested_mark = $item['marks'];
-            $sc_no = $item['sc_no'];
+            foreach ($selected as $item) {
+                $sub_cl_no = $item['sub_cl_no'];
+                $reason = $item['reason'];
+                $requested_mark = $item['marks'];
+                $sc_no = $item['sc_no'];
 
-            // 1. Create or Find an exam_appeal record for this student/semester
-            // For simplicity in this 'clean' version, we'll try to find an existing one or create a dummy 'aa_no' and 'at_no' 
-            // if the system doesn't have an open window yet. 
-            // In a real system, we'd check allow_apeals.
-            
-            // Find aa_no and at_no
-            $stmt = $conn->prepare("SELECT aa.aa_no, at.at_no 
-                                   FROM allow_apeals aa 
-                                   JOIN appeal_types at ON aa.er_no = at.er_no
-                                   JOIN allowed_exam_apeal_types aeat ON at.aeat_no = aeat.aeat_no
-                                   WHERE aa.status = 'Open' AND aeat.Type LIKE '%Exam Paper%'
-                                   LIMIT 1");
-            $stmt->execute();
-            $appeal_config = $stmt->get_result()->fetch_assoc();
-            $stmt->close();
+                // 1. Find an open appeal window configuration
+                $stmt = $conn->prepare("SELECT aa.aa_no, at.at_no 
+                                       FROM allow_apeals aa 
+                                       JOIN appeal_types at ON aa.er_no = at.er_no
+                                       JOIN allowed_exam_apeal_types aeat ON at.aeat_no = aeat.aeat_no
+                                       WHERE aa.status = 'Open' AND aeat.Type LIKE '%Exam%' 
+                                       LIMIT 1");
+                $stmt->execute();
+                $appeal_config = $stmt->get_result()->fetch_assoc();
+                $stmt->close();
 
-            if (!$appeal_config) {
-                // If no open window found, we can't submit unless we create one or just use a fallback for demo
-                // Let's assume for now there's an open window or throw error
-                // throw new Exception("No open appeal window found at this time.");
-                
-                // FALLBACK for initial implementation if tables are empty:
-                $aa_no = 1; 
-                $at_no = 1;
-            } else {
+                if (!$appeal_config) {
+                   throw new Exception("Ma jiro xilli furan (Open Appeal Window) oo cabashada lagu gudbin karo hadda. Fadlan la xiriir maamulka.");
+                }
+
                 $aa_no = $appeal_config['aa_no'];
                 $at_no = $appeal_config['at_no'];
+
+                // 2. Create exam_appeals entry
+                $stmt = $conn->prepare("INSERT INTO exam_appeals (sc_no, aa_no, at_no, status) VALUES (?, ?, ?, 'Submitted')");
+                $stmt->bind_param("iii", $sc_no, $aa_no, $at_no);
+                $stmt->execute();
+                $ea_no = $stmt->insert_id;
+                $stmt->close();
+
+                // 3. Create exam_appeal_subjects entry
+                $stmt = $conn->prepare("INSERT INTO exam_appeal_subjects (ea_no, sub_cl_no, reason, reference_no, requested_mark, status) 
+                                       VALUES (?, ?, ?, ?, ?, 'Submitted')");
+                $stmt->bind_param("iissi", $ea_no, $sub_cl_no, $reason, $reference_no, $requested_mark);
+                $stmt->execute();
+                $stmt->close();
             }
 
-            // Create exam_appeals entry
-            $stmt = $conn->prepare("INSERT INTO exam_appeals (sc_no, aa_no, at_no, status) VALUES (?, ?, ?, 'Submitted')");
-            $stmt->bind_param("iii", $sc_no, $aa_no, $at_no);
-            $stmt->execute();
-            $ea_no = $stmt->insert_id;
-            $stmt->close();
+            $conn->commit();
+            
+            echo json_encode([
+                'success' => true, 
+                'message' => 'Appeal submitted successfully.',
+                'reference_no' => $reference_no
+            ]);
 
-            // Create exam_appeal_subjects entry
-            $stmt = $conn->prepare("INSERT INTO exam_appeal_subjects (ea_no, sub_cl_no, reason, reference_no, requested_mark, status) 
-                                   VALUES (?, ?, ?, ?, ?, 'Submitted')");
-            $stmt->bind_param("iissi", $ea_no, $sub_cl_no, $reason, $reference_no, $requested_mark);
-            $stmt->execute();
-            $stmt->close();
+        } catch (Exception $e) {
+            $conn->rollback();
+            throw $e; // Rethrow to main catch block
         }
-
-        $conn->commit();
-
-        echo json_encode([
-            'success' => true, 
-            'message' => 'Appeal submitted successfully.',
-            'reference_no' => $reference_no
-        ]);
     }
     elseif ($action === 'track_appeal') {
         $ref = $_GET['reference_no'] ?? '';
