@@ -18,7 +18,7 @@ import 'package:frontend/screens/profile/profile_screen.dart';
 import 'package:frontend/screens/common/coming_soon_screen.dart';
 import 'package:frontend/screens/exam/exam_tracking_screen.dart';
 import 'package:frontend/screens/exam/exam_appeal_screen.dart';
-import 'package:frontend/class_issue/screens/class_issue_list_screen.dart';
+import 'package:frontend/class_issue/class_issue_module.dart';
 
 /// Root dashboard shell.
 ///
