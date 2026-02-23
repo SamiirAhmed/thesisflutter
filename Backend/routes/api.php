@@ -33,23 +33,17 @@ Route::prefix('v1')->group(function () {
         // Profile
         Route::get('/me',                [ProfileController::class, 'me']);
 
+        // Classroom Issues
+        Route::prefix('class-issues')->group(function () {
+            Route::get('/types',       [\App\Http\Controllers\class_issue\ClassIssueController::class, 'getIssueTypes']);
+            Route::post('/submit',     [\App\Http\Controllers\class_issue\ClassIssueController::class, 'submitIssue']);
+            Route::get('/my-issues',   [\App\Http\Controllers\class_issue\ClassIssueController::class, 'getMyClassIssues']);
+            Route::get('/tracking/{id}', [\App\Http\Controllers\class_issue\ClassIssueController::class, 'getIssueTracking']);
+        });
+
         // Logout — revokes current token only (channel-aware)
         Route::post('/auth/logout',      [AuthController::class, 'logout']);
 
-        // ── Appeals (permission-gated) ────────────────────────────────────
-        Route::middleware('perm:course_appeal.view')
-            ->get('/appeals', fn() => response()->json([
-                'success' => true,
-                'message' => 'Appeals endpoint — coming soon.',
-                'data'    => [],
-            ]));
 
-        // ── Reports (permission-gated) ────────────────────────────────────
-        Route::middleware('perm:report.view')
-            ->get('/reports', fn() => response()->json([
-                'success' => true,
-                'message' => 'Reports endpoint — coming soon.',
-                'data'    => [],
-            ]));
     });
 });

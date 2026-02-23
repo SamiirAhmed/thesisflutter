@@ -24,9 +24,7 @@ class ModuleCard extends StatelessWidget {
       case 'exam_appeal':
       case 'exam appeal':
         return Icons.quiz_rounded;
-      case 'class_issue':
-      case 'class issue':
-        return Icons.class_rounded;
+
       case 'campus_environment':
       case 'campus environment':
         return Icons.apartment_rounded;

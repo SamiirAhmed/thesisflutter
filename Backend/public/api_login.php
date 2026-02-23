@@ -118,6 +118,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $displayName = $isStudent ? ($studentSummary['student_name'] ?? $dbUser['username']) : ($teacherProfile['teacher_name'] ?? $dbUser['username']);
 
+        // Check if leader
+        $isLeader = false;
+        $lead_stmt = $conn->prepare("SELECT 1 FROM leaders l JOIN students s ON l.std_id = s.std_id WHERE s.user_id = ? LIMIT 1");
+        if ($lead_stmt) {
+            $lead_stmt->bind_param("i", $dbUser['user_id']);
+            $lead_stmt->execute();
+            $isLeader = (bool) $lead_stmt->get_result()->fetch_assoc();
+            $lead_stmt->close();
+        }
+
         echo json_encode([
             'success' => true,
             'token'   => bin2hex(random_bytes(20)),
@@ -133,6 +143,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'dashboard'       => $dashboard ?: ['key' => 'main', 'title' => 'Dashboard', 'route' => '/dashboard'],
                 'modules'         => $modules,
                 'permissions'     => $permissions,
+                'is_leader'       => $isLeader,
+                'debug_user_id'   => $dbUser['user_id'],
             ]
         ]);
     } catch (Exception $e) {

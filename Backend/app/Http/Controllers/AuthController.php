@@ -169,6 +169,7 @@ class AuthController extends Controller
                 'dashboard'       => $dashboard,
                 'modules'         => $modules,
                 'permissions'     => $permissions,
+                'is_leader'       => $user->isLeader(),
             ],
         ]);
     }

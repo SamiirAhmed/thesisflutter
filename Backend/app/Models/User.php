@@ -73,18 +73,38 @@ class User extends Authenticatable
      */
     public function hasRole(string $role): bool
     {
-        // role_name is loaded at login from the roles table
+        if (!isset($this->role_name)) {
+            $this->role_name = \Illuminate\Support\Facades\DB::table('roles')
+                ->where('role_id', $this->role_id)
+                ->value('role_name');
+        }
         return strtolower($this->role_name ?? '') === strtolower($role);
     }
 
-    /**
-     * Check a Sanctum ability on the current token.
-     */
-    public function hasPermission(string $permission): bool
+    public function student()
     {
-        if ($this->currentAccessToken() && $this->tokenCan($permission)) {
-            return true;
-        }
-        return false;
+        return $this->hasOne(Student::class, 'user_id', 'user_id');
+    }
+
+    /**
+     * Check if the user is a Class Leader.
+     */
+    public function isLeader(): bool
+    {
+        return \Illuminate\Support\Facades\DB::table('leaders')
+            ->join('students', 'leaders.std_id', '=', 'students.std_id')
+            ->where('students.user_id', $this->user_id)
+            ->exists();
+    }
+
+    /**
+     * Get the Class Leader record for this user.
+     */
+    public function getLeaderRecord()
+    {
+        $student = $this->student;
+        if (!$student) return null;
+
+        return \App\Models\ClassLeader::where('std_id', $student->std_id)->first();
     }
 }

@@ -49,6 +49,7 @@ class ProfileController extends Controller
             'role_id'   => $roleId,
             'role_name' => $baseUser->role_name,
             'status'    => $baseUser->status,
+            'is_leader' => $user->isLeader(),
         ];
 
         // Student-specific data

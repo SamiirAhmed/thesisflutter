@@ -13,7 +13,7 @@ class CheckRole
      *
      * @param  \Closure(\Illuminate\Http\Request): (\Symfony\Component\HttpFoundation\Response)  $next
      */
-    public function handle(Request $request, Closure $next, string $role): Response
+    public function handle(Request $request, Closure $next, string ...$roles): Response
     {
         $user = $request->user();
 
@@ -21,13 +21,22 @@ class CheckRole
             return response()->json(['success' => false, 'message' => 'Unauthorized'], 401);
         }
 
-        if (!method_exists($user, 'hasRole') || !$user->hasRole($role)) {
-            return response()->json([
-                'success' => false, 
-                'message' => 'Forbidden: You do not have the required role (' . $role . ')'
-            ], 403);
+        if (!method_exists($user, 'hasRole')) {
+             return response()->json(['success' => false, 'message' => 'Forbidden'], 403);
         }
 
-        return $next($request);
+        foreach ($roles as $roleGroup) {
+            $individualRoles = explode(',', $roleGroup);
+            foreach ($individualRoles as $role) {
+                if ($user->hasRole(trim($role))) {
+                    return $next($request);
+                }
+            }
+        }
+
+        return response()->json([
+            'success' => false, 
+            'message' => 'Forbidden: You do not have the required role'
+        ], 403);
     }
 }

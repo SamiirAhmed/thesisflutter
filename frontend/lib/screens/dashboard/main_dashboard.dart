@@ -16,8 +16,9 @@ import 'package:frontend/widgets/module_card.dart';
 // ── Common screens ────────────────────────────────────────────────────────────
 import 'package:frontend/screens/profile/profile_screen.dart';
 import 'package:frontend/screens/common/coming_soon_screen.dart';
-import 'package:frontend/screens/exam/exam_appeal_screen.dart';
 import 'package:frontend/screens/exam/exam_tracking_screen.dart';
+import 'package:frontend/screens/exam/exam_appeal_screen.dart';
+import 'package:frontend/class_issue/screens/class_issue_list_screen.dart';
 
 /// Root dashboard shell.
 ///
@@ -500,6 +501,14 @@ class _StudentDashboardHome extends StatelessWidget {
                     context,
                     MaterialPageRoute(
                       builder: (_) => const ExamTrackingScreen(),
+                    ),
+                  );
+                } else if (key == 'class_issue' ||
+                    title.toLowerCase().contains('class issue')) {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const ClassIssueListScreen(),
                     ),
                   );
                 } else {

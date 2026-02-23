@@ -70,6 +70,20 @@ try {
         $profile['semester'] = str_ireplace('Semister ', '', $row['semester'] ?? 'N/A');
     }
 
+    // Check if leader
+    if (!isset($profile['is_leader'])) {
+        $isLeader = false;
+        $lead_stmt = $conn->prepare("SELECT 1 FROM leaders l JOIN students s ON l.std_id = s.std_id WHERE s.user_id = ? LIMIT 1");
+        if ($lead_stmt) {
+            $lead_stmt->bind_param("i", $userId);
+            $lead_stmt->execute();
+            $isLeader = (bool) $lead_stmt->get_result()->fetch_assoc();
+            $lead_stmt->close();
+        }
+        $profile['is_leader'] = $isLeader;
+        $profile['debug_user_id'] = $userId;
+    }
+
     echo json_encode(['success' => true, 'profile' => $profile]);
 } catch (Exception $e) {
     http_response_code(500);

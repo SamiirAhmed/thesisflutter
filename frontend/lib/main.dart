@@ -33,6 +33,7 @@ class UniversityPortalApp extends StatelessWidget {
           onGenerateRoute: (settings) {
             final name = settings.name ?? '/';
 
+            // Special handling for dashboard with arguments if any
             if (name.contains('dashboard')) {
               return MaterialPageRoute(
                 builder: (_) => const MainDashboard(),

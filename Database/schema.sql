@@ -302,94 +302,7 @@ CREATE TABLE subject_class (
     ON UPDATE CASCADE ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- ----------------------------
--- Classroom Issues module
--- ----------------------------
 
-CREATE TABLE class_issues (
-  cl_issue_id INT AUTO_INCREMENT PRIMARY KEY,
-  issue_name  VARCHAR(120) NOT NULL,
-  cat_no      INT NOT NULL,
-  created_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  KEY idx_class_issues_cat_no (cat_no),
-  CONSTRAINT fk_class_issues_categories
-    FOREIGN KEY (cat_no) REFERENCES categories(cat_no)
-    ON UPDATE CASCADE ON DELETE RESTRICT
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
-CREATE TABLE leaders (
-  lead_id   INT AUTO_INCREMENT PRIMARY KEY,
-  cls_no    INT NOT NULL,
-  std_id    INT NOT NULL,
-  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  UNIQUE KEY uq_leaders_cls_no (cls_no),
-  UNIQUE KEY uq_leaders_std_id (std_id),
-  KEY idx_leaders_cls_no (cls_no),
-  KEY idx_leaders_std_id (std_id),
-  CONSTRAINT fk_leaders_classes
-    FOREIGN KEY (cls_no) REFERENCES classes(cls_no)
-    ON UPDATE CASCADE ON DELETE RESTRICT,
-  CONSTRAINT fk_leaders_students
-    FOREIGN KEY (std_id) REFERENCES students(std_id)
-    ON UPDATE CASCADE ON DELETE RESTRICT
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
-CREATE TABLE class_issues_complaints (
-  cl_is_co_no  INT AUTO_INCREMENT PRIMARY KEY,
-  cl_issue_id  INT NOT NULL,
-  description  TEXT NOT NULL,
-  lead_id      INT NOT NULL,
-  created_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  KEY idx_class_issues_complaints_issue (cl_issue_id),
-  KEY idx_class_issues_complaints_lead (lead_id),
-  CONSTRAINT fk_cic_issue
-    FOREIGN KEY (cl_issue_id) REFERENCES class_issues(cl_issue_id)
-    ON UPDATE CASCADE ON DELETE RESTRICT,
-  CONSTRAINT fk_cic_leader
-    FOREIGN KEY (lead_id) REFERENCES leaders(lead_id)
-    ON UPDATE CASCADE ON DELETE RESTRICT
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
-CREATE TABLE class_issue_assign (
-  cia_no            INT AUTO_INCREMENT PRIMARY KEY,
-  cl_is_co_no       INT NOT NULL,
-  assigned_to_user_id INT NOT NULL,
-  assigned_date     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  assigned_status   VARCHAR(30) NOT NULL DEFAULT 'Pending',
-  created_at        DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at        DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  UNIQUE KEY uq_class_issue_assign_complaint (cl_is_co_no),
-  KEY idx_class_issue_assign_assigned_to (assigned_to_user_id),
-  CONSTRAINT fk_cia_complaint
-    FOREIGN KEY (cl_is_co_no) REFERENCES class_issues_complaints(cl_is_co_no)
-    ON UPDATE CASCADE ON DELETE RESTRICT,
-  CONSTRAINT fk_cia_users
-    FOREIGN KEY (assigned_to_user_id) REFERENCES users(user_id)
-    ON UPDATE CASCADE ON DELETE RESTRICT
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
-CREATE TABLE class_issue_tracking (
-  cit_no            INT AUTO_INCREMENT PRIMARY KEY,
-  cl_is_co_no       INT NOT NULL,
-  old_status        VARCHAR(30) NULL,
-  new_status        VARCHAR(30) NOT NULL,
-  changed_by_user_id INT NOT NULL,
-  changed_date      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  note              VARCHAR(255) NULL,
-  created_at        DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at        DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  KEY idx_cit_complaint (cl_is_co_no),
-  KEY idx_cit_changed_by (changed_by_user_id),
-  CONSTRAINT fk_cit_complaint
-    FOREIGN KEY (cl_is_co_no) REFERENCES class_issues_complaints(cl_is_co_no)
-    ON UPDATE CASCADE ON DELETE RESTRICT,
-  CONSTRAINT fk_cit_users
-    FOREIGN KEY (changed_by_user_id) REFERENCES users(user_id)
-    ON UPDATE CASCADE ON DELETE RESTRICT
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- ----------------------------
 -- Campus Environment module
@@ -887,4 +800,100 @@ CALL sp_create_student(
 );
 
 SELECT @sid4 AS username, @pass4 AS password;
+
+
+
+--  class isssue
+
+
+CREATE TABLE `leaders` (
+  `lead_id` int(11) NOT NULL AUTO_INCREMENT,
+  `cls_no` int(11) NOT NULL,
+  `std_id` int(11) NOT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`lead_id`),
+  UNIQUE KEY `uq_leaders_cls_no` (`cls_no`),
+  UNIQUE KEY `uq_leaders_std_id` (`std_id`),
+  KEY `idx_leaders_cls_no` (`cls_no`),
+  KEY `idx_leaders_std_id` (`std_id`),
+  CONSTRAINT `fk_leaders_classes` FOREIGN KEY (`cls_no`) REFERENCES `classes` (`cls_no`) ON UPDATE CASCADE,
+  CONSTRAINT `fk_leaders_students` FOREIGN KEY (`std_id`) REFERENCES `students` (`std_id`) ON UPDATE CASCADE
+)
+
+
+---
+
+CREATE TABLE `class_issues` (
+  `cl_issue_id` int(11) NOT NULL AUTO_INCREMENT,
+  `issue_name` varchar(120) NOT NULL,
+  `cat_no` int(11) NOT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`cl_issue_id`),
+  KEY `idx_class_issues_cat_no` (`cat_no`),
+  CONSTRAINT `fk_class_issues_categories` FOREIGN KEY (`cat_no`) REFERENCES `categories` (`cat_no`) ON UPDATE CASCADE
+) 
+
+
+--
+CREATE TABLE `categories` (
+  `cat_no` int(11) NOT NULL AUTO_INCREMENT,
+  `cat_name` varchar(80) NOT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`cat_no`),
+  UNIQUE KEY `uq_categories_name` (`cat_name`)
+)
+
+
+CREATE TABLE `class_issue_assign` (
+  `cia_no` int(11) NOT NULL AUTO_INCREMENT,
+  `cl_is_co_no` int(11) NOT NULL,
+  `assigned_to_user_id` int(11) NOT NULL,
+  `assigned_date` datetime NOT NULL DEFAULT current_timestamp(),
+  `assigned_status` varchar(30) NOT NULL DEFAULT 'Pending',
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`cia_no`),
+  UNIQUE KEY `uq_class_issue_assign_complaint` (`cl_is_co_no`),
+  KEY `idx_class_issue_assign_assigned_to` (`assigned_to_user_id`),
+  CONSTRAINT `fk_cia_complaint` FOREIGN KEY (`cl_is_co_no`) REFERENCES `class_issues_complaints` (`cl_is_co_no`) ON UPDATE CASCADE,
+  CONSTRAINT `fk_cia_users` FOREIGN KEY (`assigned_to_user_id`) REFERENCES `users` (`user_id`) ON UPDATE CASCADE
+) 
+
+
+CREATE TABLE `class_issues_complaints` (
+  `cl_is_co_no` int(11) NOT NULL AUTO_INCREMENT,
+  `cl_issue_id` int(11) NOT NULL,
+  `description` text NOT NULL,
+  `lead_id` int(11) NOT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`cl_is_co_no`),
+  KEY `idx_class_issues_complaints_issue` (`cl_issue_id`),
+  KEY `idx_class_issues_complaints_lead` (`lead_id`),
+  CONSTRAINT `fk_cic_issue` FOREIGN KEY (`cl_issue_id`) REFERENCES `class_issues` (`cl_issue_id`) ON UPDATE CASCADE,
+  CONSTRAINT `fk_cic_leader` FOREIGN KEY (`lead_id`) REFERENCES `leaders` (`lead_id`) ON UPDATE CASCADE
+)
+
+
+
+CREATE TABLE `class_issue_tracking` (
+  `cit_no` int(11) NOT NULL AUTO_INCREMENT,
+  `cl_is_co_no` int(11) NOT NULL,
+  `old_status` varchar(30) DEFAULT NULL,
+  `new_status` varchar(30) NOT NULL,
+  `changed_by_user_id` int(11) NOT NULL,
+  `changed_date` datetime NOT NULL DEFAULT current_timestamp(),
+  `note` varchar(255) DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`cit_no`),
+  KEY `idx_cit_complaint` (`cl_is_co_no`),
+  KEY `idx_cit_changed_by` (`changed_by_user_id`),
+  CONSTRAINT `fk_cit_complaint` FOREIGN KEY (`cl_is_co_no`) REFERENCES `class_issues_complaints` (`cl_is_co_no`) ON UPDATE CASCADE,
+  CONSTRAINT `fk_cit_users` FOREIGN KEY (`changed_by_user_id`) REFERENCES `users` (`user_id`) ON UPDATE CASCADE
+) 
+
 
