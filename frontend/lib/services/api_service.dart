@@ -9,16 +9,24 @@ import 'package:shared_preferences/shared_preferences.dart';
 ///   - Android emulator  → http://10.0.2.2:8000
 ///   - Real device       → http://YOUR_PC_IP:8000  (change [_baseUrl] only)
 class ApiService {
-  static String _currentBaseUrl = 'http://10.0.2.2:8000';
-  static const String _fallbackBaseUrl = 'http://127.0.0.1:8000';
+  // For Android emulator, 10.0.2.2 maps to the host PC's localhost.
+  // For real devices, use the PC's LAN IP.
+  static const String _emulatorUrl = 'http://10.0.2.2:8000';
+  static const String _pcLanUrl = 'http://10.241.250.3:8000';
+  static String _currentBaseUrl = _emulatorUrl;
   static const String _keyBaseUrl = 'api_base_url';
 
-  /// Returns the effective base URL (either from storage or hardcoded default).
+  /// Returns the effective base URL.
+  /// Auto-clears any stale loopback (127.0.0.1) URL that was previously cached.
   static Future<String> getBaseUrl() async {
     final prefs = await SharedPreferences.getInstance();
     final stored = prefs.getString(_keyBaseUrl);
-    if (stored != null && stored.isNotEmpty) {
+    if (stored != null && stored.isNotEmpty && !stored.contains('127.0.0.1')) {
       _currentBaseUrl = stored;
+    } else if (stored != null && stored.contains('127.0.0.1')) {
+      // Wipe the bad cached URL
+      await prefs.remove(_keyBaseUrl);
+      _currentBaseUrl = _emulatorUrl;
     }
     return _currentBaseUrl;
   }
@@ -28,6 +36,13 @@ class ApiService {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_keyBaseUrl, newUrl.trim());
     _currentBaseUrl = newUrl.trim();
+  }
+
+  /// Resets the cached URL back to the emulator default.
+  static Future<void> resetBaseUrl() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_keyBaseUrl);
+    _currentBaseUrl = _emulatorUrl;
   }
 
   // ── SharedPreferences keys ─────────────────────────────────────────────────
@@ -46,15 +61,14 @@ class ApiService {
 
     // List of potential local server addresses to try (Self-healing)
     final candidateUrls = [
-      'http://10.241.250.3:8000', // 1. Current PC IP (Prioritized for speed)
-      primaryUrl, // 2. Last working URL
-      'http://10.0.2.2:8000', // 3. Android Emulator
-      'http://127.0.0.1:8000', // 4. Localhost
-      _fallbackBaseUrl, // 5. Fallback
+      _emulatorUrl, // 1. Android emulator → host gateway (always works on emulator)
+      _pcLanUrl, // 2. Real device on LAN
+      primaryUrl, // 3. Last working URL saved in prefs
     ];
 
     // Remove duplicates to avoid redundant calls
     final uniqueUrls = candidateUrls.toSet().toList();
+    print('ApiService: Attempting login. Candidates: $uniqueUrls');
 
     Map<String, dynamic> lastResult = {
       'success': false,
@@ -63,15 +77,19 @@ class ApiService {
 
     for (String url in uniqueUrls) {
       if (url.isEmpty) continue;
+      print('ApiService: Trying connection to $url...');
 
       final result = await _doLogin(url, userId, pin);
       if (result['success'] == true) {
+        print('ApiService: SUCCESS connecting to $url');
         // SUCCESS! Save this working URL as the primary for future sessions
         if (url != primaryUrl) {
           await setBaseUrl(url);
         }
         return result;
       }
+
+      print('ApiService: Failed to connect to $url: ${result['message']}');
       lastResult = result;
     }
 
@@ -85,6 +103,7 @@ class ApiService {
     String pin,
   ) async {
     try {
+      final startTime = DateTime.now();
       final response = await http
           .post(
             Uri.parse('$url/api/v1/auth/login'),
@@ -99,14 +118,19 @@ class ApiService {
             }),
           )
           .timeout(
-            const Duration(seconds: 10),
-          ); // Slightly longer timeout for Laravel
+            const Duration(seconds: 5), // Fail fast to try next candidate
+          );
+
+      final duration = DateTime.now().difference(startTime).inMilliseconds;
+      print(
+        'ApiService: Received response from $url in ${duration}ms (Status: ${response.statusCode})',
+      );
 
       // Guard: some PHP errors return HTML
       if (response.body.trim().startsWith('<')) {
         return {
           'success': false,
-          'message': 'Server error. Please contact the administrator.',
+          'message': 'Server error: Received HTML instead of JSON.',
         };
       }
 
@@ -127,15 +151,17 @@ class ApiService {
 
       return {
         'success': false,
-        'message': decoded['message'] ?? 'Login failed. Please try again.',
+        'message':
+            decoded['message'] ?? 'Login failed (${response.statusCode}).',
       };
-    } on Exception catch (e) {
-      final message = e.toString();
-      return {
-        'success': false,
-        'isConnectionError': true,
-        'message': 'Connection error. Check your internet or server.\n$message',
-      };
+    } catch (e) {
+      String errMsg = e.toString();
+      if (e is http.ClientException) {
+        errMsg = 'Network error (Check if server is running)';
+      } else if (errMsg.contains('TimeoutException')) {
+        errMsg = 'Connection timed out after 5s';
+      }
+      return {'success': false, 'isConnectionError': true, 'message': errMsg};
     }
   }
 

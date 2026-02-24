@@ -330,8 +330,11 @@ class _StudentShellState extends State<_StudentShell> {
     final name =
         widget.userData['name'] ?? widget.userData['username'] ?? 'User';
     final roleId = (widget.userData['role_id'] as num?)?.toInt() ?? 0;
-    final roleName =
+    String roleName =
         widget.userData['role_name'] ?? (roleId == 1 ? 'Student' : 'User');
+    if (widget.userData['is_leader'] == true && roleId == 1) {
+      roleName = 'Student (Leader)';
+    }
 
     final pages = <Widget>[
       _StudentDashboardHome(
@@ -460,7 +463,10 @@ class _StudentDashboardHome extends StatelessWidget {
   Widget build(BuildContext context) {
     final name = userData['name'] ?? userData['username'] ?? 'User';
     final roleId = (userData['role_id'] as num?)?.toInt() ?? 0;
-    final roleName = userData['role_name'] ?? 'Student';
+    String roleName = userData['role_name'] ?? 'Student';
+    if (userData['is_leader'] == true && roleId == 1) {
+      roleName = 'Student (Leader)';
+    }
     final modules =
         (userData['modules'] as List?)?.cast<Map<String, dynamic>>() ?? [];
 
