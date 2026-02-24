@@ -36,9 +36,18 @@ Route::prefix('v1')->group(function () {
         // Classroom Issues
         Route::prefix('class-issues')->group(function () {
             Route::get('/types',       [\App\Http\Controllers\class_issue\ClassIssueController::class, 'getIssueTypes']);
+            Route::get('/my-classes',  [\App\Http\Controllers\class_issue\ClassIssueController::class, 'getMyClasses']);
             Route::post('/submit',     [\App\Http\Controllers\class_issue\ClassIssueController::class, 'submitIssue']);
             Route::get('/my-issues',   [\App\Http\Controllers\class_issue\ClassIssueController::class, 'getMyClassIssues']);
             Route::get('/tracking/{id}', [\App\Http\Controllers\class_issue\ClassIssueController::class, 'getIssueTracking']);
+            Route::post('/update-status', [\App\Http\Controllers\class_issue\ClassIssueController::class, 'updateStatus']);
+        });
+
+        // Exam Appeals
+        Route::prefix('exam')->group(function () {
+            Route::get('/subjects',    [\App\Http\Controllers\Exam\ExamController::class, 'getSubjects']);
+            Route::post('/submit',     [\App\Http\Controllers\Exam\ExamController::class, 'submitAppeal']);
+            Route::get('/track',       [\App\Http\Controllers\Exam\ExamController::class, 'trackAppeal']);
         });
 
         // Logout — revokes current token only (channel-aware)

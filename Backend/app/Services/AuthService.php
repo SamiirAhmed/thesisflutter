@@ -54,15 +54,46 @@ class AuthService
     }
 
     /**
-     * Load visible modules for a role from DB.
+     * Load visible modules directly from the categories table.
      * Caps at 3 as per system requirement.
      */
     public function getModules(int $roleId): array
     {
         try {
-            $rows = DB::select('CALL ' . self::PROC_MODULES . '(?)', [$roleId]);
-            // Enforce max-3 categories — system requirement
-            return array_slice(array_map(fn($r) => (array) $r, $rows), 0, 3);
+            $cats = DB::table('categories')
+                ->orderBy('cat_no')
+                ->limit(3)
+                ->get();
+
+            if ($cats->isEmpty()) {
+                return [];
+            }
+
+            $iconMap = [
+                'exam appeal'        => 'assignment_rounded',
+                'class issue'        => 'apartment_rounded',
+                'compus enviroment'  => 'apartment_rounded',
+                'campus environment' => 'apartment_rounded',
+            ];
+
+            $keyMap = [
+                'exam appeal'        => 'exam_appeal',
+                'class issue'        => 'class_issue',
+                'compus enviroment'  => 'campus_env',
+                'campus environment' => 'campus_env',
+            ];
+
+            return $cats->map(function ($cat) use ($iconMap, $keyMap) {
+                $name = $cat->cat_name;
+                $lower = strtolower($name);
+                return [
+                    'key'       => $keyMap[$lower] ?? str_replace(' ', '_', $lower),
+                    'title'     => $name,
+                    'route'     => '/' . ($keyMap[$lower] ?? str_replace(' ', '_', $lower)),
+                    'sub_title' => 'Submit and track ' . strtolower($name),
+                    'icon_name' => $iconMap[$lower] ?? 'apartment_rounded',
+                ];
+            })->toArray();
         } catch (\Exception $e) {
             Log::error('AuthService::getModules — ' . $e->getMessage());
             return [];
@@ -123,14 +154,6 @@ class AuthService
         }
     }
 
-    /**
-     * Load teacher info from DB.
-     *
-     * NOTE: The DB table is named "tearchers" (with a typo).
-     *       We use that exact spelling to match the real schema.
-     *       Teacher does NOT have a specialization column;
-     *       instead they have job_no → jobs.title.
-     */
     public function getTeacherProfile(int $userId): ?array
     {
         try {
@@ -139,15 +162,12 @@ class AuthService
                     t.teacher_id,
                     t.name           AS teacher_name,
                     t.tell           AS phone,
-                    j.title          AS specialization,
+                    t.specialization,
                     d.name           AS department,
                     f.name           AS faculty
-                FROM tearchers t
-                LEFT JOIN jobs        j ON t.job_no      = j.job_no
-                LEFT JOIN subject_class sc ON sc.teacher_no = t.teacher_no
-                LEFT JOIN classes     cl  ON sc.cls_no     = cl.cls_no
-                LEFT JOIN departments d   ON cl.dept_no    = d.dept_no
-                LEFT JOIN faculties   f   ON d.faculty_no  = f.faculty_no
+                FROM teachers t
+                LEFT JOIN departments d   ON t.dept_no    = d.dept_no
+                LEFT JOIN faculties   f   ON d.faculty_no = f.faculty_no
                 WHERE t.user_id = ?
                 LIMIT 1
             ", [$userId]);

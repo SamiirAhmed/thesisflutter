@@ -73,9 +73,10 @@ class IssueTracking {
 // ── SERVICE ──────────────────────────────────────────────────────────────────
 
 class ClassIssueService {
-  static Future<String> _getApiUrl(String action) async {
+  static Future<String> _getApiUrl(String path) async {
     final baseUrl = await ApiService.getBaseUrl();
-    return '$baseUrl/api_class_issues.php?action=$action';
+    // Using Laravel API structure: /api/v1/class-issues/...
+    return '$baseUrl/api/v1/class-issues$path';
   }
 
   static Future<Map<String, String>> _getHeaders() async {
@@ -92,7 +93,7 @@ class ClassIssueService {
 
   static Future<List<ClassIssueType>> getIssueTypes() async {
     try {
-      final url = await _getApiUrl('get_categories');
+      final url = await _getApiUrl('/types');
       final headers = await _getHeaders();
       final response = await http.get(Uri.parse(url), headers: headers);
       if (response.statusCode == 200) {
@@ -110,7 +111,7 @@ class ClassIssueService {
 
   static Future<List<Map<String, dynamic>>> getMyClasses() async {
     try {
-      final url = await _getApiUrl('get_my_classes');
+      final url = await _getApiUrl('/my-classes');
       final headers = await _getHeaders();
       final response = await http.get(Uri.parse(url), headers: headers);
       if (response.statusCode == 200) {
@@ -131,7 +132,7 @@ class ClassIssueService {
     int? clsNo,
   ) async {
     try {
-      final url = await _getApiUrl('submit_issue');
+      final url = await _getApiUrl('/submit');
       final headers = await _getHeaders();
       final response = await http.post(
         Uri.parse(url),
@@ -150,7 +151,7 @@ class ClassIssueService {
 
   static Future<List<ClassroomIssue>> getMyIssues() async {
     try {
-      final url = await _getApiUrl('get_my_issues');
+      final url = await _getApiUrl('/my-issues');
       final headers = await _getHeaders();
       final response = await http.get(Uri.parse(url), headers: headers);
       if (response.statusCode == 200) {
@@ -168,7 +169,7 @@ class ClassIssueService {
 
   static Future<List<IssueTracking>> getTracking(int complaintId) async {
     try {
-      final url = await _getApiUrl('get_tracking') + '&id=$complaintId';
+      final url = await _getApiUrl('/tracking/$complaintId');
       final headers = await _getHeaders();
       final response = await http.get(Uri.parse(url), headers: headers);
       if (response.statusCode == 200) {
@@ -197,6 +198,7 @@ class _ClassIssueListScreenState extends State<ClassIssueListScreen> {
   List<ClassroomIssue> _issues = [];
   bool _isLoading = true;
   bool _isLeader = false;
+  String _selectedStatus = 'Pending';
 
   @override
   void initState() {
@@ -235,21 +237,16 @@ class _ClassIssueListScreenState extends State<ClassIssueListScreen> {
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : RefreshIndicator(
-              onRefresh: _refreshIssues,
-              child: _issues.isEmpty
-                  ? const Center(
-                      child: Text(
-                        'Tap + to report or pull down to refresh',
-                        style: TextStyle(color: Colors.grey),
-                      ),
-                    )
-                  : ListView.builder(
-                      padding: const EdgeInsets.all(16),
-                      itemCount: _issues.length,
-                      itemBuilder: (context, index) =>
-                          _buildIssueCard(_issues[index]),
-                    ),
+          : Column(
+              children: [
+                _buildFilterBar(),
+                Expanded(
+                  child: RefreshIndicator(
+                    onRefresh: _refreshIssues,
+                    child: _buildIssuesList(),
+                  ),
+                ),
+              ],
             ),
       floatingActionButton: _isLeader
           ? FloatingActionButton.extended(
@@ -271,14 +268,122 @@ class _ClassIssueListScreenState extends State<ClassIssueListScreen> {
     );
   }
 
+  Widget _buildFilterBar() {
+    return Container(
+      height: 60,
+      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          _buildFilterChip(
+            'Pending',
+            Icons.hourglass_empty,
+            color: Colors.orange,
+          ),
+          _buildFilterChip(
+            'Resolved',
+            Icons.check_circle_outline,
+            color: Colors.green,
+          ),
+          _buildFilterChip(
+            'Rejected',
+            Icons.cancel_outlined,
+            color: Colors.red,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFilterChip(String label, IconData icon, {Color? color}) {
+    final bool isSelected = _selectedStatus == label;
+    final Color activeColor = color ?? AppColors.primary;
+
+    return GestureDetector(
+      onTap: () => setState(() => _selectedStatus = label),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? activeColor : Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isSelected ? activeColor : Colors.grey[300]!,
+            width: 1,
+          ),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: activeColor.withOpacity(0.3),
+                    blurRadius: 8,
+                    offset: const Offset(0, 4),
+                  ),
+                ]
+              : [],
+        ),
+        child: Row(
+          children: [
+            Icon(
+              icon,
+              size: 18,
+              color: isSelected ? Colors.white : Colors.grey[600],
+            ),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: TextStyle(
+                color: isSelected ? Colors.white : Colors.grey[700],
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildIssuesList() {
+    final List<ClassroomIssue> filteredIssues = _issues.where((i) {
+      String status = i.status.toLowerCase();
+      if (_selectedStatus == 'Pending') {
+        return status == 'pending' || status == 'in review';
+      }
+      return status == _selectedStatus.toLowerCase();
+    }).toList();
+
+    if (filteredIssues.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.inbox_outlined, size: 64, color: Colors.grey[300]),
+            const SizedBox(height: 16),
+            Text(
+              'No $_selectedStatus issues found',
+              style: const TextStyle(color: Colors.grey),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: filteredIssues.length,
+      itemBuilder: (context, index) => _buildIssueCard(filteredIssues[index]),
+    );
+  }
+
   Widget _buildIssueCard(ClassroomIssue issue) {
     Color statusColor = Colors.blue;
-    if (issue.status.toLowerCase() == 'resolved')
+    String status = issue.status.toLowerCase();
+    if (status == 'resolved') {
       statusColor = Colors.green;
-    else if (issue.status.toLowerCase() == 'rejected')
+    } else if (status == 'rejected') {
       statusColor = Colors.red;
-    else if (issue.status.toLowerCase() == 'in review')
+    } else if (status == 'pending' || status == 'in review') {
       statusColor = Colors.orange;
+    }
 
     return Card(
       elevation: 4,

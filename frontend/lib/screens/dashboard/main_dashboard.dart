@@ -477,14 +477,6 @@ class _StudentDashboardHome extends StatelessWidget {
             // Gradient header
             DashboardHeader(name: name, roleName: roleName, roleId: roleId),
 
-            // Student academic summary
-            if (roleId == 6 && userData['student_summary'] != null)
-              _StudentSummaryCard(
-                summary: Map<String, dynamic>.from(
-                  userData['student_summary'] as Map,
-                ),
-              ),
-
             // Modules from database
             _StudentModulesSection(
               modules: modules,

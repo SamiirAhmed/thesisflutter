@@ -51,10 +51,10 @@ class User extends Authenticatable
     }
 
     // ── Role constants (from database) ───────────────────────────────────────
-    const ROLE_ADMIN        = 5;
-    const ROLE_STUDENT      = 6;
-    const ROLE_TEACHER      = 7;
-    const ROLE_EXAM_OFFICER = 8;
+    const ROLE_STUDENT      = 1;
+    const ROLE_TEACHER      = 2;
+    const ROLE_EXAM_OFFICER = 3;
+    const ROLE_ADMIN        = 4;
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
