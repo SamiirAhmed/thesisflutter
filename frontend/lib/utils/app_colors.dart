@@ -29,23 +29,15 @@ class AppColors {
   static const Color textSecondaryDark = Color(0xFFB0B0B0);
   static const Color dividerDark = Color(0xFF333333);
 
-  // ── Module card icon colors ──────────────────────────────────────────────
+  // ── Module card icon colors (Premium Palette) ──────────────────────────
   static const Map<String, Color> moduleColors = {
-    'appeals': Color(0xFF1565C0),
-    'complaints': Color(0xFFC62828),
-    'results': Color(0xFF283593),
-    'finance': Color(0xFFE65100),
-    'classes': Color(0xFF00695C),
-    'attendance': Color(0xFF6A1B9A),
-    'research': Color(0xFFBF360C),
-    'schedule': Color(0xFF0277BD),
-    'grading': Color(0xFF558B2F),
-    'course_appeal': Color(0xFF3949AB),
-    'notifications': Color(0xFF00897B),
-    'coursework_notifications': Color(0xFF00897B),
-    'notification': Color(0xFF00897B),
-    'report': Color(0xFF5E35B1),
-    'reports': Color(0xFF5E35B1),
+    'exam_appeal': Color(0xFFE74C3C), // Red (Medicine style)
+    'class_issue': Color(0xFF5D3191), // Purple (Economics style)
+    'compus_enviroment': Color(0xFF27AE60), // Green (Engineering style)
+    'campus_env': Color(0xFF27AE60),
+    'report': Color(0xFFF39C12), // Orange (IT style)
+    'reports': Color(0xFFF39C12),
+    'analytics': Color(0xFF2980B9),
   };
 
   static Color moduleColor(String key) =>

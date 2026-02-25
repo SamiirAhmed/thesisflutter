@@ -55,14 +55,13 @@ class AuthService
 
     /**
      * Load visible modules directly from the categories table.
-     * Caps at 3 as per system requirement.
+     * Fetches all available categories to drive the dashboard cards.
      */
     public function getModules(int $roleId): array
     {
         try {
             $cats = DB::table('categories')
                 ->orderBy('cat_no')
-                ->limit(3)
                 ->get();
 
             if ($cats->isEmpty()) {
@@ -72,26 +71,25 @@ class AuthService
             $iconMap = [
                 'exam appeal'        => 'assignment_rounded',
                 'class issue'        => 'apartment_rounded',
-                'compus enviroment'  => 'apartment_rounded',
-                'campus environment' => 'apartment_rounded',
+                'compus enviroment'  => 'home_work_rounded',
+                'campus environment' => 'home_work_rounded',
+                'report'             => 'analytics_rounded',
+                'settings'           => 'settings_suggest_rounded',
             ];
 
-            $keyMap = [
-                'exam appeal'        => 'exam_appeal',
-                'class issue'        => 'class_issue',
-                'compus enviroment'  => 'campus_env',
-                'campus environment' => 'campus_env',
-            ];
-
-            return $cats->map(function ($cat) use ($iconMap, $keyMap) {
+            return $cats->map(function ($cat) use ($iconMap) {
                 $name = $cat->cat_name;
-                $lower = strtolower($name);
+                $lower = strtolower(trim($name));
+                
+                // Deterministic keys and routes based on name
+                $baseKey = str_replace(' ', '_', $lower);
+                
                 return [
-                    'key'       => $keyMap[$lower] ?? str_replace(' ', '_', $lower),
+                    'key'       => $baseKey,
                     'title'     => $name,
-                    'route'     => '/' . ($keyMap[$lower] ?? str_replace(' ', '_', $lower)),
+                    'route'     => '/' . $baseKey,
                     'sub_title' => 'Submit and track ' . strtolower($name),
-                    'icon_name' => $iconMap[$lower] ?? 'apartment_rounded',
+                    'icon_name' => $iconMap[$lower] ?? 'grid_view_rounded',
                 ];
             })->toArray();
         } catch (\Exception $e) {

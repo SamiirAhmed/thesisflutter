@@ -1,15 +1,19 @@
 @echo off
 REM ============================================================
-REM  Start Laravel Backend Server
+REM  Start Flutter Frontend App
 REM  Works from ANY location - no hardcoded paths!
 REM ============================================================
 cd /d "%~dp0"
 echo.
 echo ========================================
-echo   Starting Laravel Backend Server...
-echo   URL: http://0.0.0.0:8000
-echo   Press Ctrl+C to stop the server.
+echo   Flutter Frontend - Getting Ready...
 echo ========================================
 echo.
-php artisan serve --host=0.0.0.0 --port=8000
+echo [1/2] Getting Flutter packages...
+call flutter pub get
+echo.
+echo [2/2] Running Flutter app...
+echo   (Make sure an emulator or device is connected)
+echo.
+flutter run
 pause

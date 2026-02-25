@@ -9,9 +9,9 @@ import 'package:frontend/screens/teacher/teacher_dashboard.dart';
 import 'package:frontend/widgets/teacher_drawer.dart';
 
 // ── Student / shared widgets ──────────────────────────────────────────────────
+import 'package:frontend/widgets/premium_date_header.dart';
 import 'package:frontend/widgets/dashboard_header.dart';
 import 'package:frontend/widgets/module_card.dart';
-// import 'package:frontend/widgets/hero_banner.dart';
 
 // ── Common screens ────────────────────────────────────────────────────────────
 import 'package:frontend/screens/profile/profile_screen.dart';
@@ -450,7 +450,7 @@ class _StudentShellState extends State<_StudentShell> {
 // ─────────────────────────────────────────────────────────────────────────────
 /// Student dashboard home content
 // ─────────────────────────────────────────────────────────────────────────────
-class _StudentDashboardHome extends StatelessWidget {
+class _StudentDashboardHome extends StatefulWidget {
   final Map<String, dynamic> userData;
   final Future<void> Function() onRefresh;
 
@@ -460,201 +460,95 @@ class _StudentDashboardHome extends StatelessWidget {
   });
 
   @override
+  State<_StudentDashboardHome> createState() => _StudentDashboardHomeState();
+}
+
+class _StudentDashboardHomeState extends State<_StudentDashboardHome> {
+  @override
   Widget build(BuildContext context) {
-    final name = userData['name'] ?? userData['username'] ?? 'User';
-    final roleId = (userData['role_id'] as num?)?.toInt() ?? 0;
-    String roleName = userData['role_name'] ?? 'Student';
-    if (userData['is_leader'] == true && roleId == 1) {
+    final name =
+        widget.userData['name'] ?? widget.userData['username'] ?? 'User';
+    final roleId = (widget.userData['role_id'] as num?)?.toInt() ?? 0;
+    String roleName = widget.userData['role_name'] ?? 'Student';
+    if (widget.userData['is_leader'] == true && roleId == 1) {
       roleName = 'Student (Leader)';
     }
     final modules =
-        (userData['modules'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+        (widget.userData['modules'] as List?)?.cast<Map<String, dynamic>>() ??
+        [];
 
-    return RefreshIndicator(
-      onRefresh: onRefresh,
-      color: AppColors.primary,
-      child: SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(
-          parent: BouncingScrollPhysics(),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Gradient header
-            DashboardHeader(name: name, roleName: roleName, roleId: roleId),
-
-            // Modules from database
-            _StudentModulesSection(
-              modules: modules,
-              onModuleTap: (title, key) {
-                if (key == 'course_appeal' ||
-                    title.toLowerCase().contains('exam')) {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const ExamAppealScreen()),
-                  );
-                } else if (key == 'track_appeal' ||
-                    title.toLowerCase().contains('track')) {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const ExamTrackingScreen(),
-                    ),
-                  );
-                } else if (key == 'class_issue' ||
-                    title.toLowerCase().contains('class issue')) {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const ClassIssueListScreen(),
-                    ),
-                  );
-                } else {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => ComingSoonScreen(title: title),
-                    ),
-                  );
-                }
-              },
-            ),
-
-            const SizedBox(height: 24),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-/// Student academic summary card
-// ─────────────────────────────────────────────────────────────────────────────
-class _StudentSummaryCard extends StatelessWidget {
-  final Map<String, dynamic> summary;
-
-  const _StudentSummaryCard({required this.summary});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
-      child: Container(
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.circular(22),
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.primary.withOpacity(0.08),
-              blurRadius: 18,
-              offset: const Offset(0, 8),
-            ),
-          ],
-        ),
-        child: Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [AppColors.primaryDark, AppColors.primary],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
-              ),
-              child: const Row(
-                children: [
-                  Icon(Icons.school_rounded, color: Colors.white, size: 22),
-                  SizedBox(width: 10),
-                  Text(
-                    'Academic Summary',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                children: [
-                  _infoRow(
-                    Icons.badge_rounded,
-                    'Student ID',
-                    summary['student_id']?.toString() ?? 'N/A',
-                  ),
-                  _infoRow(
-                    Icons.account_balance_rounded,
-                    'Faculty',
-                    summary['faculty']?.toString() ?? 'N/A',
-                  ),
-                  _infoRow(
-                    Icons.apartment_rounded,
-                    'Department',
-                    summary['department']?.toString() ?? 'N/A',
-                  ),
-                  _infoRow(
-                    Icons.class_rounded,
-                    'Class',
-                    summary['class_name']?.toString() ?? 'N/A',
-                  ),
-                  _infoRow(
-                    Icons.calendar_month_rounded,
-                    'Semester',
-                    summary['semester']?.toString() ?? 'N/A',
-                    isLast: true,
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _infoRow(
-    IconData icon,
-    String label,
-    String value, {
-    bool isLast = false,
-  }) {
     return Column(
       children: [
-        Row(
-          children: [
-            Icon(icon, size: 16, color: AppColors.primary.withOpacity(0.7)),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                label,
-                style: const TextStyle(
-                  color: AppColors.textSecondary,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 13,
+        // ── Scrollable Refreshable Content ───────────────────────────────
+        Expanded(
+          child: RefreshIndicator(
+            onRefresh: widget.onRefresh,
+            displacement: 24,
+            color: AppColors.primary,
+            backgroundColor: Colors.white,
+            child: CustomScrollView(
+              key: const PageStorageKey('student_dashboard_scroll_key'),
+              physics: const AlwaysScrollableScrollPhysics(
+                parent: BouncingScrollPhysics(),
+              ),
+              slivers: [
+                // ── Hero Banner Section (Images) ───────────────────────────
+                SliverToBoxAdapter(
+                  child: DashboardHeader(
+                    name: name,
+                    roleName: roleName,
+                    roleId: roleId,
+                  ),
                 ),
-              ),
+
+                // ── Date Header (Dynamic Greeting) ─────────────────────────
+                const SliverToBoxAdapter(child: PremiumDateHeader()),
+
+                // ── Modules / Categories Section ───────────────────────────────
+                SliverToBoxAdapter(
+                  child: _StudentModulesSection(
+                    modules: modules,
+                    onModuleTap: (title, key) {
+                      if (key == 'course_appeal' ||
+                          title.toLowerCase().contains('exam')) {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const ExamAppealScreen(),
+                          ),
+                        );
+                      } else if (key == 'track_appeal' ||
+                          title.toLowerCase().contains('track')) {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const ExamTrackingScreen(),
+                          ),
+                        );
+                      } else if (key == 'class_issue' ||
+                          title.toLowerCase().contains('class issue')) {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const ClassIssueListScreen(),
+                          ),
+                        );
+                      } else {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => ComingSoonScreen(title: title),
+                          ),
+                        );
+                      }
+                    },
+                  ),
+                ),
+                const SliverToBoxAdapter(child: SizedBox(height: 32)),
+              ],
             ),
-            Text(
-              value,
-              style: const TextStyle(
-                fontWeight: FontWeight.w700,
-                fontSize: 13,
-                color: AppColors.textPrimary,
-              ),
-            ),
-          ],
-        ),
-        if (!isLast)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 8),
-            child: Divider(height: 1, color: AppColors.divider),
           ),
+        ),
       ],
     );
   }
@@ -675,31 +569,10 @@ class _StudentModulesSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 28, 20, 0),
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Student Categories',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w900,
-              color: AppColors.textPrimary,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            modules.isEmpty
-                ? 'No categories assigned yet.'
-                : 'Submit and track your appeals & complaints',
-            style: const TextStyle(
-              color: AppColors.textSecondary,
-              fontWeight: FontWeight.w500,
-              fontSize: 13,
-            ),
-          ),
-          const SizedBox(height: 20),
-
           if (modules.isNotEmpty)
             GridView.builder(
               shrinkWrap: true,
@@ -718,6 +591,7 @@ class _StudentModulesSection extends StatelessWidget {
                 return ModuleCard(
                   title: title,
                   moduleKey: key,
+                  iconName: m['icon_name'] as String?,
                   onTap: () => onModuleTap(title, key),
                 );
               },

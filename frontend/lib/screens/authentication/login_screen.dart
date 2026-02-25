@@ -101,226 +101,231 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    const primaryGreen = Color(0xFF4C8C2B); // Jamhuriya Green
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F7F7),
+      backgroundColor: Colors.white,
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
         centerTitle: true,
         title: const Text(
           'Sign In',
-          style: TextStyle(fontWeight: FontWeight.w700, color: Colors.white),
+          style: TextStyle(
+            fontWeight: FontWeight.w600,
+            color: Colors.black,
+            fontSize: 20,
+          ),
         ),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
+          icon: const Icon(Icons.arrow_back, color: Colors.black, size: 28),
           onPressed: () => Navigator.maybePop(context),
         ),
       ),
       body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(22, 18, 22, 22),
-            child: ConstrainedBox(
-              constraints: BoxConstraints(
-                minHeight:
-                    MediaQuery.of(context).size.height -
-                    MediaQuery.of(context).padding.top -
-                    MediaQuery.of(context).padding.bottom -
-                    kToolbarHeight,
-              ),
-              child: IntrinsicHeight(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    // Logo (Asset Image)
-                    GestureDetector(
-                      onTap: _showServerSettingsDialog,
-                      child: Container(
-                        height: 78,
-                        width: 78,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          shape: BoxShape.circle,
-                          border: Border.all(color: const Color(0xFFE8E8E8)),
-                        ),
-                        child: ClipOval(
-                          child: Image.asset(
-                            'assets/logo.png',
-                            fit: BoxFit.cover,
-                          ),
-                        ),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              const SizedBox(height: 40),
+
+              // Logo Section
+              Center(
+                child: Container(
+                  height: 140,
+                  width: 140,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.08),
+                        blurRadius: 30,
+                        offset: const Offset(0, 12),
+                      ),
+                    ],
+                  ),
+                  child: ClipOval(
+                    child: Image.asset(
+                      'assets/logo.png',
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) => const Icon(
+                        Icons.school,
+                        size: 70,
+                        color: primaryGreen,
                       ),
                     ),
-
-                    const SizedBox(height: 18),
-
-                    const Text(
-                      'Welcome to Jamhuriya University',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      'Please sign in to continue',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: Colors.black54,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-
-                    const SizedBox(height: 22),
-
-                    _InputCard(
-                      child: TextField(
-                        controller: _userIdCtrl,
-                        decoration: const InputDecoration(
-                          prefixIcon: Icon(Icons.person_outline),
-                          hintText: 'User id',
-                          border: InputBorder.none,
-                        ),
-                      ),
-                    ),
-
-                    const SizedBox(height: 14),
-
-                    _InputCard(
-                      child: TextField(
-                        controller: _pinCtrl,
-                        keyboardType: TextInputType.number,
-                        obscureText: _obscurePin,
-                        decoration: InputDecoration(
-                          prefixIcon: const Icon(Icons.lock_outline),
-                          hintText: 'PIN',
-                          border: InputBorder.none,
-                          suffixIcon: IconButton(
-                            icon: Icon(
-                              _obscurePin
-                                  ? Icons.visibility_off
-                                  : Icons.visibility,
-                            ),
-                            onPressed: () =>
-                                setState(() => _obscurePin = !_obscurePin),
-                          ),
-                        ),
-                      ),
-                    ),
-
-                    const SizedBox(height: 12),
-
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: TextButton(
-                        onPressed: _showNeedHelpSheet,
-                        child: const Text(
-                          'Need help?',
-                          style: TextStyle(
-                            color: Color(0xFF2E7D32),
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                    ),
-
-                    const SizedBox(height: 14),
-
-                    SizedBox(
-                      width: double.infinity,
-                      height: 54,
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF2E7D32),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                        ),
-                        onPressed: _isLoading
-                            ? null
-                            : () async {
-                                if (_userIdCtrl.text.trim().isEmpty ||
-                                    _pinCtrl.text.trim().isEmpty) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text(
-                                        'Please enter your User ID and PIN.',
-                                      ),
-                                    ),
-                                  );
-                                  return;
-                                }
-
-                                // Capture context-dependent objects before async gap
-                                final nav = Navigator.of(context);
-                                final messenger = ScaffoldMessenger.of(context);
-
-                                setState(() => _isLoading = true);
-
-                                final result = await ApiService.login(
-                                  _userIdCtrl.text,
-                                  _pinCtrl.text,
-                                );
-
-                                if (!mounted) return;
-                                setState(() => _isLoading = false);
-
-                                if (result['success'] == true) {
-                                  final apiData = result['data'];
-                                  final innerData = apiData?['data'] as Map?;
-                                  final dashboardMap =
-                                      innerData?['dashboard'] as Map?;
-                                  final route =
-                                      dashboardMap?['route']?.toString() ??
-                                      '/dashboard';
-                                  nav.pushReplacementNamed(route);
-                                } else {
-                                  messenger.showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        result['message'] ?? 'Login failed.',
-                                      ),
-                                      backgroundColor: Colors.red,
-                                      duration: const Duration(seconds: 10),
-                                      behavior: SnackBarBehavior.floating,
-                                      action:
-                                          result['isConnectionError'] == true
-                                          ? SnackBarAction(
-                                              label: 'FIX',
-                                              textColor: Colors.white,
-                                              onPressed:
-                                                  _showServerSettingsDialog,
-                                            )
-                                          : null,
-                                    ),
-                                  );
-                                }
-                              },
-                        child: _isLoading
-                            ? const CircularProgressIndicator(
-                                color: Colors.white,
-                              )
-                            : const Text(
-                                'Sign In',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w800,
-                                  fontSize: 20,
-                                  color: Colors.white,
-                                ),
-                              ),
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               ),
-            ),
+
+              const SizedBox(height: 32),
+
+              // Welcome Text
+              const Text(
+                'Welcome to Jamhuriya University',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w900,
+                  color: Colors.black,
+                  letterSpacing: -0.5,
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Please sign in to continue',
+                style: TextStyle(
+                  fontSize: 16,
+                  color: Colors.black54,
+                  fontWeight: FontWeight.w400,
+                ),
+              ),
+
+              const SizedBox(height: 48),
+
+              // User ID Field
+              _InputCard(
+                child: TextField(
+                  controller: _userIdCtrl,
+                  style: const TextStyle(fontWeight: FontWeight.w500),
+                  decoration: const InputDecoration(
+                    prefixIcon: Icon(
+                      Icons.person_outline_rounded,
+                      color: Colors.black45,
+                    ),
+                    hintText: 'User id',
+                    hintStyle: TextStyle(color: Colors.black38),
+                    border: InputBorder.none,
+                    contentPadding: EdgeInsets.symmetric(vertical: 16),
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
+              // PIN Field
+              _InputCard(
+                child: TextField(
+                  controller: _pinCtrl,
+                  keyboardType: TextInputType.number,
+                  obscureText: _obscurePin,
+                  style: const TextStyle(fontWeight: FontWeight.w500),
+                  decoration: InputDecoration(
+                    prefixIcon: const Icon(
+                      Icons.lock_outline_rounded,
+                      color: Colors.black45,
+                    ),
+                    hintText: 'PIN',
+                    hintStyle: const TextStyle(color: Colors.black38),
+                    border: InputBorder.none,
+                    contentPadding: const EdgeInsets.symmetric(vertical: 16),
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _obscurePin
+                            ? Icons.visibility_off_outlined
+                            : Icons.visibility_outlined,
+                        color: Colors.black45,
+                      ),
+                      onPressed: () =>
+                          setState(() => _obscurePin = !_obscurePin),
+                    ),
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 12),
+
+              // Need Help Link
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  onPressed: _showNeedHelpSheet,
+                  style: TextButton.styleFrom(foregroundColor: primaryGreen),
+                  child: const Text(
+                    'Need help?',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 32),
+
+              // Sign In Button
+              SizedBox(
+                width: double.infinity,
+                height: 58,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: primaryGreen,
+                    foregroundColor: Colors.white,
+                    elevation: 2,
+                    shadowColor: primaryGreen.withOpacity(0.4),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                  onPressed: _isLoading ? null : _handleLogin,
+                  child: _isLoading
+                      ? const CircularProgressIndicator(color: Colors.white)
+                      : const Text(
+                          'Sign In',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 18,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                ),
+              ),
+              const SizedBox(height: 40),
+            ],
           ),
         ),
       ),
     );
+  }
+
+  // Helper method for login logic to keep build method clean
+  Future<void> _handleLogin() async {
+    if (_userIdCtrl.text.trim().isEmpty || _pinCtrl.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter your User ID and PIN.')),
+      );
+      return;
+    }
+
+    final nav = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+
+    setState(() => _isLoading = true);
+    final result = await ApiService.login(_userIdCtrl.text, _pinCtrl.text);
+    if (!mounted) return;
+    setState(() => _isLoading = false);
+
+    if (result['success'] == true) {
+      final apiData = result['data'];
+      final innerData = apiData?['data'] as Map?;
+      final dashboardMap = innerData?['dashboard'] as Map?;
+      final route = dashboardMap?['route']?.toString() ?? '/dashboard';
+      nav.pushReplacementNamed(route);
+    } else {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(result['message'] ?? 'Login failed.'),
+          backgroundColor: Colors.redAccent,
+          behavior: SnackBarBehavior.floating,
+          action: result['isConnectionError'] == true
+              ? SnackBarAction(
+                  label: 'FIX',
+                  textColor: Colors.white,
+                  onPressed: _showServerSettingsDialog,
+                )
+              : null,
+        ),
+      );
+    }
   }
 }
 
@@ -331,16 +336,15 @@ class _InputCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE9E9E9)),
-        boxShadow: const [
+        border: Border.all(color: Colors.black.withOpacity(0.05)),
+        boxShadow: [
           BoxShadow(
-            blurRadius: 10,
-            offset: Offset(0, 4),
-            color: Color(0x0F000000),
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 15,
+            offset: const Offset(0, 8),
           ),
         ],
       ),
