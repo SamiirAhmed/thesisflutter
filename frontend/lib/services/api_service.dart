@@ -12,7 +12,7 @@ class ApiService {
   // For Android emulator, 10.0.2.2 maps to the host PC's localhost.
   // For real devices, use the PC's LAN IP.
   static const String _emulatorUrl = 'http://10.0.2.2:8000';
-  static const String _pcLanUrl = 'http://10.241.250.3:8000';
+  static const String _pcLanUrl = 'http://10.178.73.3:8000';
   static String _currentBaseUrl = _emulatorUrl;
   static const String _keyBaseUrl = 'api_base_url';
 
@@ -177,17 +177,12 @@ class ApiService {
   // Profile
   // ─────────────────────────────────────────────────────────────────────────
 
-  /// Fetch the full user profile. Routes to api_student.php or api_teacher.php based on role.
+  /// Fetch the full user profile and sync with local storage.
   static Future<Map<String, dynamic>> fetchMe() async {
     try {
       final token = await _getToken();
       if (token == null || token.isEmpty) {
         return {'success': false, 'message': 'Not logged in.'};
-      }
-
-      final userData = await getLocalUserData();
-      if (userData == null) {
-        return {'success': false, 'message': 'User role not found.'};
       }
 
       final baseUrl = await getBaseUrl();
@@ -203,7 +198,23 @@ class ApiService {
       final decoded = jsonDecode(response.body) as Map<String, dynamic>;
 
       if (response.statusCode == 200 && decoded['success'] == true) {
-        return {'success': true, 'profile': decoded['profile']};
+        final freshProfile = decoded['profile'] as Map<String, dynamic>;
+
+        // Update local cache for "Dynamic" behavior
+        final prefs = await SharedPreferences.getInstance();
+        final storedStr = prefs.getString(_keyUserData);
+        if (storedStr != null) {
+          final Map<String, dynamic> merged = jsonDecode(storedStr);
+          // Update profile fields
+          freshProfile.forEach((k, v) => merged[k] = v);
+          // Sync name field
+          if (freshProfile['full_name'] != null) {
+            merged['name'] = freshProfile['full_name'];
+          }
+          await prefs.setString(_keyUserData, jsonEncode(merged));
+        }
+
+        return {'success': true, 'profile': freshProfile};
       }
 
       return {

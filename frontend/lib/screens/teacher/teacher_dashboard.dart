@@ -15,8 +15,13 @@ import 'package:frontend/screens/common/coming_soon_screen.dart';
 // ─────────────────────────────────────────────────────────────────────────────
 class TeacherDashboard extends StatefulWidget {
   final Map<String, dynamic> userData;
+  final Future<void> Function() onRefresh;
 
-  const TeacherDashboard({super.key, required this.userData});
+  const TeacherDashboard({
+    super.key,
+    required this.userData,
+    required this.onRefresh,
+  });
 
   @override
   State<TeacherDashboard> createState() => _TeacherDashboardState();
@@ -32,10 +37,16 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
     userData = widget.userData;
   }
 
+  @override
+  void didUpdateWidget(TeacherDashboard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.userData != widget.userData) {
+      setState(() => userData = widget.userData);
+    }
+  }
+
   Future<void> _loadData() async {
-    // In a real app, this would re-fetch from ApiService.fetchMe()
-    await Future.delayed(const Duration(milliseconds: 800));
-    if (mounted) setState(() {});
+    await widget.onRefresh();
   }
 
   // Convenience getters

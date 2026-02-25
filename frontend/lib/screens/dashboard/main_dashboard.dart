@@ -196,7 +196,7 @@ class _TeacherShellState extends State<_TeacherShell> {
   Widget build(BuildContext context) {
     // Pages for IndexedStack — index matches bottom nav
     final pages = <Widget>[
-      TeacherDashboard(userData: widget.userData),
+      TeacherDashboard(userData: widget.userData, onRefresh: widget.onRefresh),
       const ProfileScreen(),
     ];
 
