@@ -12,7 +12,7 @@ class ApiService {
   // For Android emulator, 10.0.2.2 maps to the host PC's localhost.
   // For real devices, use the PC's LAN IP.
   static const String _emulatorUrl = 'http://10.0.2.2:8000';
-  static const String _pcLanUrl = 'http://';
+  static const String _pcLanUrl = 'http://10.178.73.3:8000';
   static String _currentBaseUrl = _emulatorUrl;
   static const String _keyBaseUrl = 'api_base_url';
 
@@ -21,9 +21,16 @@ class ApiService {
   static Future<String> getBaseUrl() async {
     final prefs = await SharedPreferences.getInstance();
     final stored = prefs.getString(_keyBaseUrl);
-    if (stored != null && stored.isNotEmpty && !stored.contains('127.0.0.1')) {
+
+    // Safety check: if stored URL is empty or just "http://", ignore it
+    if (stored != null &&
+        stored.isNotEmpty &&
+        stored != 'http://' &&
+        stored != 'https://' &&
+        !stored.contains('127.0.0.1')) {
       _currentBaseUrl = stored;
-    } else if (stored != null && stored.contains('127.0.0.1')) {
+    } else if (stored != null &&
+        (stored.contains('127.0.0.1') || stored == 'http://')) {
       // Wipe the bad cached URL
       await prefs.remove(_keyBaseUrl);
       _currentBaseUrl = _emulatorUrl;
@@ -76,7 +83,10 @@ class ApiService {
     };
 
     for (String url in uniqueUrls) {
-      if (url.isEmpty) continue;
+      if (url.isEmpty || url == 'http://' || url == 'https://') {
+        print('ApiService: Skipping invalid URL candidate: "$url"');
+        continue;
+      }
       print('ApiService: Trying connection to $url...');
 
       final result = await _doLogin(url, userId, pin);
@@ -335,6 +345,3 @@ class ApiService {
     return prefs.getString(_keyUserId);
   }
 }
-
-
-
