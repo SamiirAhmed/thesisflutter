@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Feb 24, 2026 at 11:57 AM
+-- Generation Time: Feb 26, 2026 at 02:23 PM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.0.30
 
@@ -18,7 +18,7 @@ SET time_zone = "+00:00";
 /*!40101 SET NAMES utf8mb4 */;
 
 --
--- Database: `thesisdb`
+-- Database: `thesispro`
 --
 
 DELIMITER $$
@@ -57,52 +57,11 @@ CREATE DEFINER=`root`@`localhost` PROCEDURE `login_proc` (IN `p_identifier` VARC
     LIMIT 1;
 END$$
 
-CREATE DEFINER=`root`@`localhost` PROCEDURE `proc_get_class_reports` (IN `p_user_id` BIGINT)   BEGIN
-    DECLARE v_role_id INT;
-    SELECT role_id INTO v_role_id FROM users WHERE id = p_user_id;
-
-    IF v_role_id = 6 THEN
-        -- Ardaygu wuxuu arkayaa kaliya dhibka uu isagu soo gudbiyey
-        SELECT r.id, i.issue_name as issue_type, r.description, r.status, r.resolution_note, r.created_at, u.full_name as reporter_name
-        FROM class_reports r
-        JOIN class_issues i ON r.cl_issue_id = i.cl_issue_id
-        JOIN users u ON r.reported_by = u.id
-        WHERE r.reported_by = p_user_id
-        ORDER BY r.created_at DESC;
-    ELSE
-        -- Macallinka ama Faculty-ga waxay arkayaan dhammaan
-        SELECT r.id, i.issue_name as issue_type, r.description, r.status, r.resolution_note, r.created_at, u.full_name as reporter_name
-        FROM class_reports r
-        JOIN class_issues i ON r.cl_issue_id = i.cl_issue_id
-        JOIN users u ON r.reported_by = u.id
-        ORDER BY r.created_at DESC;
-    END IF;
-END$$
-
-CREATE DEFINER=`root`@`localhost` PROCEDURE `proc_get_issue_categories` ()   BEGIN
-    SELECT cl_issue_id, issue_name FROM class_issues;
-END$$
-
-CREATE DEFINER=`root`@`localhost` PROCEDURE `proc_update_report_status` (IN `p_report_id` BIGINT, IN `p_user_id` BIGINT, IN `p_status` VARCHAR(50), IN `p_note` TEXT)   BEGIN
-    DECLARE v_old_status VARCHAR(50);
-    SELECT status INTO v_old_status FROM class_reports WHERE id = p_report_id;
-    
-    -- Bedel status-ka table-ka rasmiga ah
-    UPDATE class_reports 
-    SET status = p_status, 
-        resolution_note = CASE WHEN p_status IN ('Resolved', 'Rejected') THEN p_note ELSE resolution_note END,
-        updated_at = NOW()
-    WHERE id = p_report_id;
-    
-    -- Ku dar log-ga (History)
-    INSERT INTO class_report_logs (class_report_id, user_id, old_status, new_status, note, created_at)
-    VALUES (p_report_id, p_user_id, v_old_status, p_status, p_note, NOW());
-END$$
-
-CREATE DEFINER=`root`@`localhost` PROCEDURE `sp_create_student` (IN `p_name` VARCHAR(150), IN `p_tell` VARCHAR(30), IN `p_gender` VARCHAR(15), IN `p_email` VARCHAR(150), IN `p_add_no` INT, IN `p_dob` DATE, IN `p_parent_no` INT, IN `p_register_date` DATE, IN `p_mother` VARCHAR(150), IN `p_sch_no` INT, IN `p_nira` VARCHAR(50), IN `p_status` VARCHAR(20), IN `p_access_channel` ENUM('APP','WEB','BOTH',''), OUT `o_user_id` INT, OUT `o_std_id` INT, OUT `o_student_id` VARCHAR(20), OUT `o_plain_password` VARCHAR(6))   BEGIN
-  DECLARE v_student_id VARCHAR(20);
-  DECLARE v_pass_plain VARCHAR(6);
-  DECLARE v_pass_hash  VARCHAR(255);
+CREATE DEFINER=`root`@`localhost` PROCEDURE `sp_create_student` (IN `p_name` VARCHAR(150), IN `p_tell` VARCHAR(30), IN `p_gender` VARCHAR(15), IN `p_email` VARCHAR(150), IN `p_add_no` INT, IN `p_dob` DATE, IN `p_parent_no` INT, IN `p_register_date` DATE, IN `p_mother` VARCHAR(150), IN `p_pob` VARCHAR(100), IN `p_graduation_year` YEAR, IN `p_grade` VARCHAR(20), IN `p_sch_no` INT, IN `p_nira` VARCHAR(50), IN `p_shift_no` INT, OUT `o_user_id` INT, OUT `o_std_id` INT, OUT `o_student_id` VARCHAR(50), OUT `o_plain_password` VARCHAR(6))   BEGIN
+  DECLARE v_student_id   VARCHAR(50);
+  DECLARE v_pass_plain   VARCHAR(6);
+  DECLARE v_pass_hash    VARCHAR(255);
+  DECLARE v_exists       INT DEFAULT 0;
 
   DECLARE EXIT HANDLER FOR SQLEXCEPTION
   BEGIN
@@ -111,89 +70,78 @@ CREATE DEFINER=`root`@`localhost` PROCEDURE `sp_create_student` (IN `p_name` VAR
       SET MESSAGE_TEXT = 'sp_create_student failed. Transaction rolled back.';
   END;
 
-  -- 1) generate student_id like STU280002
+  SELECT COUNT(*) INTO v_exists
+  FROM shifts
+  WHERE shift_no = p_shift_no;
+
+  IF p_shift_no IS NULL OR v_exists = 0 THEN
+    SIGNAL SQLSTATE '45000'
+      SET MESSAGE_TEXT = 'sp_create_student failed: invalid shift_no (shift not found).';
+  END IF;
+
+  IF p_add_no IS NOT NULL THEN
+    SELECT COUNT(*) INTO v_exists FROM address WHERE add_no = p_add_no;
+    IF v_exists = 0 THEN
+      SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'sp_create_student failed: invalid add_no (address not found).';
+    END IF;
+  END IF;
+
+  IF p_parent_no IS NOT NULL THEN
+    SELECT COUNT(*) INTO v_exists FROM parents WHERE parent_no = p_parent_no;
+    IF v_exists = 0 THEN
+      SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'sp_create_student failed: invalid parent_no (parent not found).';
+    END IF;
+  END IF;
+
+  IF p_sch_no IS NOT NULL THEN
+    SELECT COUNT(*) INTO v_exists FROM school WHERE sch_no = p_sch_no;
+    IF v_exists = 0 THEN
+      SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'sp_create_student failed: invalid sch_no (school not found).';
+    END IF;
+  END IF;
+
   CALL sp_generate_student_id(NULL, v_student_id);
 
-  -- 2) generate 6-digit random password (keeps leading zeros)
   SET v_pass_plain = LPAD(FLOOR(RAND() * 1000000), 6, '0');
-
-  -- 3) hash password (SHA-256). If you want bcrypt, hash in Laravel instead.
-  SET v_pass_hash = SHA2(v_pass_plain, 256);
+  SET v_pass_hash  = SHA2(v_pass_plain, 256);
 
   START TRANSACTION;
 
-  -- 4) insert into users (role_id=1 student, username=student_id)
-  -- if p_access_channel is NULL, rely on table default by not overriding it
-  IF p_access_channel IS NULL THEN
-    INSERT INTO users(
-      role_id, username, password_hash, status, created_at, updated_at
-    )
-    VALUES (
-      1,
-      v_student_id,
-      v_pass_hash,
-      COALESCE(p_status, 'Active'),
-      CURRENT_TIMESTAMP,
-      CURRENT_TIMESTAMP
-    );
-  ELSE
-    INSERT INTO users(
-      role_id, username, password_hash, status, Accees_channel, created_at, updated_at
-    )
-    VALUES (
-      1,
-      v_student_id,
-      v_pass_hash,
-      COALESCE(p_status, 'Active'),
-      p_access_channel,
-      CURRENT_TIMESTAMP,
-      CURRENT_TIMESTAMP
-    );
-  END IF;
+  INSERT INTO users(role_id, username, password_hash, status, created_at, updated_at)
+  VALUES (1, v_student_id, v_pass_hash, 'Active', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
 
   SET o_user_id = LAST_INSERT_ID();
 
-  -- 5) insert into students (matches your table)
   INSERT INTO students(
     user_id, student_id, name, tell, gender, email, add_no, dob, parent_no,
-    register_date, mother, sch_no, nira, status, created_at, updated_at
+    register_date, mother, Pob, graduation_year, grade, sch_no, nira, shift_no,
+    status, created_at, updated_at
   )
   VALUES (
-    o_user_id,
-    v_student_id,
-    p_name,
-    p_tell,
-    p_gender,
-    p_email,
-    p_add_no,
-    p_dob,
-    p_parent_no,
-    p_register_date,
-    p_mother,
-    p_sch_no,
-    p_nira,
-    COALESCE(p_status, 'Active'),
-    CURRENT_TIMESTAMP,
-    CURRENT_TIMESTAMP
+    o_user_id, v_student_id, p_name, p_tell, p_gender, p_email, p_add_no, p_dob, p_parent_no,
+    p_register_date, p_mother, p_pob, p_graduation_year, p_grade, p_sch_no, p_nira, p_shift_no,
+    'Active', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
   );
 
   SET o_std_id = LAST_INSERT_ID();
-INSERT INTO student_initial_credentials (std_id, user_id, username, plain_password)
-VALUES (o_std_id, o_user_id, v_student_id, v_pass_plain);
 
-
+  INSERT INTO student_initial_credentials(std_id, user_id, username, plain_password)
+  VALUES (o_std_id, o_user_id, v_student_id, v_pass_plain);
 
   COMMIT;
 
-  -- outputs
   SET o_student_id = v_student_id;
   SET o_plain_password = v_pass_plain;
 END$$
 
-CREATE DEFINER=`root`@`localhost` PROCEDURE `sp_create_teacher` (IN `p_name` VARCHAR(150), IN `p_tell` VARCHAR(30), IN `p_email` VARCHAR(150), IN `p_gender` VARCHAR(15), IN `p_hire_date` DATE, IN `p_status` VARCHAR(20), IN `p_access_channel` ENUM('APP','WEB','BOTH',''), OUT `o_user_id` INT, OUT `o_teacher_no` INT, OUT `o_teacher_id` VARCHAR(20), OUT `o_plain_password` VARCHAR(6))   BEGIN
+CREATE DEFINER=`root`@`localhost` PROCEDURE `sp_create_teacher` (IN `p_name` VARCHAR(150), IN `p_tell` VARCHAR(30), IN `p_email` VARCHAR(150), IN `p_gender` VARCHAR(15), IN `p_add_no` INT, IN `p_hire_date` DATE, OUT `o_user_id` INT, OUT `o_teacher_no` INT, OUT `o_teacher_id` VARCHAR(20), OUT `o_plain_password` VARCHAR(6))   BEGIN
   DECLARE v_teacher_id  VARCHAR(20);
   DECLARE v_pass_plain  VARCHAR(6);
   DECLARE v_pass_hash   VARCHAR(255);
+  DECLARE v_exists      INT DEFAULT 0;
 
   DECLARE EXIT HANDLER FOR SQLEXCEPTION
   BEGIN
@@ -202,6 +150,16 @@ CREATE DEFINER=`root`@`localhost` PROCEDURE `sp_create_teacher` (IN `p_name` VAR
       SET MESSAGE_TEXT = 'sp_create_teacher failed. Transaction rolled back.';
   END;
 
+  SELECT COUNT(*)
+    INTO v_exists
+  FROM address
+  WHERE add_no = p_add_no;
+
+  IF p_add_no IS NULL OR v_exists = 0 THEN
+    SIGNAL SQLSTATE '45000'
+      SET MESSAGE_TEXT = 'sp_create_teacher failed: invalid add_no (address not found).';
+  END IF;
+
   CALL sp_generate_teacher_id(NULL, v_teacher_id);
 
   SET v_pass_plain = LPAD(FLOOR(RAND() * 1000000), 6, '0');
@@ -209,22 +167,17 @@ CREATE DEFINER=`root`@`localhost` PROCEDURE `sp_create_teacher` (IN `p_name` VAR
 
   START TRANSACTION;
 
-  IF p_access_channel IS NULL THEN
-    INSERT INTO users(role_id, username, password_hash, status, created_at, updated_at)
-    VALUES (2, v_teacher_id, v_pass_hash, COALESCE(p_status,'Active'), CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
-  ELSE
-    INSERT INTO users(role_id, username, password_hash, status, Accees_channel, created_at, updated_at)
-    VALUES (2, v_teacher_id, v_pass_hash, COALESCE(p_status,'Active'), p_access_channel, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
-  END IF;
+  INSERT INTO users(role_id, username, password_hash, status, Accees_channel, created_at, updated_at)
+  VALUES (2, v_teacher_id, v_pass_hash, 'Active', 'BOTH', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
 
   SET o_user_id = LAST_INSERT_ID();
 
   INSERT INTO teachers(
-    user_id, teacher_id, name, tell, email, gender, hire_date, status, created_at, updated_at
+    user_id, teacher_id, name, tell, email, gender, add_no, hire_date, status, created_at, updated_at
   )
   VALUES (
-    o_user_id, v_teacher_id, p_name, p_tell, p_email, p_gender, p_hire_date,
-    COALESCE(p_status,'Active'), CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+    o_user_id, v_teacher_id, p_name, p_tell, p_email, p_gender, p_add_no, p_hire_date,
+    'Active', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
   );
 
   SET o_teacher_no = LAST_INSERT_ID();
@@ -436,7 +389,7 @@ CREATE TABLE `campuses` (
 
 INSERT INTO `campuses` (`camp_no`, `campus`, `created_at`, `updated_at`) VALUES
 (1, 'Campus 1', '2026-02-18 08:49:16', '2026-02-18 08:49:16'),
-(2, 'Campus 3\r\n', '2026-02-18 08:49:25', '2026-02-18 08:49:25'),
+(2, 'Campus 2', '2026-02-18 08:49:25', '2026-02-24 10:23:30'),
 (3, 'Campus 3', '2026-02-18 08:53:10', '2026-02-18 08:53:10');
 
 -- --------------------------------------------------------
@@ -536,9 +489,10 @@ CREATE TABLE `categories` (
 --
 
 INSERT INTO `categories` (`cat_no`, `cat_name`, `created_at`, `updated_at`) VALUES
-(1, 'Exam Appeal', '2026-02-24 00:30:52', '2026-02-24 00:30:52'),
-(2, 'Class Issue', '2026-02-24 00:30:52', '2026-02-24 00:30:52'),
-(3, 'Campus enviroment', '2026-02-24 00:30:52', '2026-02-24 00:43:17');
+(1, 'Exam Appeal', '2026-02-25 00:17:22', '2026-02-25 00:17:22'),
+(2, 'Class issue', '2026-02-25 00:17:22', '2026-02-25 00:17:22'),
+(3, 'Compus Enviroment', '2026-02-25 00:17:22', '2026-02-25 00:17:22'),
+(4, 'Report', '2026-02-25 02:51:34', '2026-02-25 02:51:34');
 
 -- --------------------------------------------------------
 
@@ -584,9 +538,10 @@ CREATE TABLE `class_issues` (
 --
 
 INSERT INTO `class_issues` (`cl_issue_id`, `issue_name`, `cat_no`, `created_at`, `updated_at`) VALUES
-(1, 'Projector', 2, '2026-02-24 00:47:41', '2026-02-24 00:47:41'),
-(2, 'Tables', 2, '2026-02-24 00:47:41', '2026-02-24 00:47:41'),
-(3, 'Doors', 2, '2026-02-24 01:10:21', '2026-02-24 01:10:21');
+(1, 'proejctor', 2, '2026-02-25 00:18:04', '2026-02-25 00:18:04'),
+(2, 'fan', 2, '2026-02-25 00:18:04', '2026-02-25 00:18:04'),
+(3, 'other', 2, '2026-02-26 00:20:40', '2026-02-26 00:20:40'),
+(4, 'daqada', 2, '2026-02-26 13:20:11', '2026-02-26 13:20:11');
 
 -- --------------------------------------------------------
 
@@ -597,6 +552,7 @@ INSERT INTO `class_issues` (`cl_issue_id`, `issue_name`, `cat_no`, `created_at`,
 CREATE TABLE `class_issues_complaints` (
   `cl_is_co_no` int(11) NOT NULL,
   `cl_issue_id` int(11) NOT NULL,
+  `title` varchar(255) DEFAULT NULL,
   `description` text NOT NULL,
   `lead_id` int(11) NOT NULL,
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
@@ -607,11 +563,13 @@ CREATE TABLE `class_issues_complaints` (
 -- Dumping data for table `class_issues_complaints`
 --
 
-INSERT INTO `class_issues_complaints` (`cl_is_co_no`, `cl_issue_id`, `description`, `lead_id`, `created_at`, `updated_at`) VALUES
-(1, 1, 'projectorka cilada ka jirto daciif wye', 1, '2026-02-24 09:08:58', '2026-02-24 09:08:58'),
-(2, 2, 'misas ka jajab ka jira', 2, '2026-02-24 09:11:23', '2026-02-24 09:11:23'),
-(3, 3, 'daqada we jabsan tahay', 1, '2026-02-24 09:52:45', '2026-02-24 09:52:45'),
-(4, 3, 'broken', 1, '2026-02-24 10:54:38', '2026-02-24 10:54:38');
+INSERT INTO `class_issues_complaints` (`cl_is_co_no`, `cl_issue_id`, `title`, `description`, `lead_id`, `created_at`, `updated_at`) VALUES
+(1, 1, NULL, 'cilad daciif ah ayu noqonaya projectorka', 4, '2026-02-25 08:42:48', '2026-02-25 08:42:48'),
+(2, 1, NULL, 'projector cilad kajirta', 3, '2026-02-25 10:21:16', '2026-02-25 10:21:16'),
+(3, 2, NULL, 'mashaqeyneyana', 4, '2026-02-25 11:34:39', '2026-02-25 11:34:39'),
+(4, 3, 'class capacity', 'fasalka cariri aa kajiro in laxaliyo raba', 4, '2026-02-26 10:52:52', '2026-02-26 10:52:52'),
+(5, 3, 'nadafad daro', 'nadafad daro aa ku dhibanahay ', 3, '2026-02-26 12:45:58', '2026-02-26 04:54:13'),
+(6, 4, 'daqada', 'daqada cialad ka jirta', 3, '2026-02-26 13:20:11', '2026-02-26 13:20:11');
 
 -- --------------------------------------------------------
 
@@ -638,8 +596,8 @@ CREATE TABLE `class_issue_assign` (
 CREATE TABLE `class_issue_tracking` (
   `cit_no` int(11) NOT NULL,
   `cl_is_co_no` int(11) NOT NULL,
-  `old_status` varchar(33) DEFAULT NULL,
-  `new_status` enum('pending','Resolved','Reject') NOT NULL DEFAULT 'pending',
+  `old_status` varchar(30) DEFAULT NULL,
+  `new_status` varchar(30) NOT NULL,
   `changed_by_user_id` int(11) NOT NULL,
   `changed_date` datetime NOT NULL DEFAULT current_timestamp(),
   `note` varchar(255) DEFAULT NULL,
@@ -652,10 +610,12 @@ CREATE TABLE `class_issue_tracking` (
 --
 
 INSERT INTO `class_issue_tracking` (`cit_no`, `cl_is_co_no`, `old_status`, `new_status`, `changed_by_user_id`, `changed_date`, `note`, `created_at`, `updated_at`) VALUES
-(1, 1, NULL, 'Resolved', 29, '2026-02-24 01:08:58', 'Submitted', '2026-02-24 09:08:58', '2026-02-24 01:09:55'),
-(2, 2, NULL, 'pending', 30, '2026-02-24 01:11:23', 'Submitted', '2026-02-24 09:11:23', '2026-02-24 09:11:23'),
-(3, 3, NULL, 'pending', 29, '2026-02-24 01:52:45', 'Submitted', '2026-02-24 09:52:45', '2026-02-24 09:52:45'),
-(4, 4, NULL, 'pending', 29, '2026-02-24 02:54:38', 'Submitted', '2026-02-24 10:54:38', '2026-02-24 10:54:38');
+(1, 1, NULL, 'Pending', 7, '2026-02-25 00:42:48', 'Submitted', '2026-02-25 08:42:48', '2026-02-25 08:42:48'),
+(2, 2, NULL, 'Pending', 8, '2026-02-25 02:21:16', 'Submitted', '2026-02-25 10:21:16', '2026-02-25 10:21:16'),
+(3, 3, NULL, 'Pending', 7, '2026-02-25 03:34:39', 'Submitted', '2026-02-25 11:34:39', '2026-02-25 11:34:39'),
+(4, 4, NULL, 'Pending', 7, '2026-02-26 02:52:52', 'Submitted', '2026-02-26 10:52:52', '2026-02-26 10:52:52'),
+(5, 5, NULL, 'Pending', 8, '2026-02-26 04:45:58', 'Submitted', '2026-02-26 12:45:58', '2026-02-26 12:45:58'),
+(6, 6, NULL, 'Pending', 8, '2026-02-26 05:20:11', 'Submitted', '2026-02-26 13:20:11', '2026-02-26 13:20:11');
 
 -- --------------------------------------------------------
 
@@ -694,9 +654,8 @@ CREATE TABLE `departments` (
 --
 
 INSERT INTO `departments` (`dept_no`, `name`, `faculty_no`, `created_at`, `updated_at`) VALUES
-(1, 'Computer Science', 1, '2026-02-18 09:51:25', '2026-02-18 09:51:25'),
 (3, 'Computer Application', 1, '2026-02-18 08:51:49', '2026-02-18 08:51:49'),
-(4, 'Network $ Security', 1, '2026-02-18 08:51:49', '2026-02-18 08:51:49'),
+(4, 'Network & Security', 1, '2026-02-18 08:51:49', '2026-02-23 12:07:44'),
 (5, 'Multimedia', 1, '2026-02-18 08:52:05', '2026-02-18 08:52:05');
 
 -- --------------------------------------------------------
@@ -861,8 +820,8 @@ CREATE TABLE `id_sequences_year` (
 --
 
 INSERT INTO `id_sequences_year` (`seq_key`, `year2`, `last_no`, `updated_at`) VALUES
-('STU', '26', 4, '2026-02-18 14:19:39'),
-('TCH', '26', 5, '2026-02-19 09:33:19');
+('STU', '26', 7, '2026-02-24 14:42:50'),
+('TCH', '26', 7, '2026-02-24 13:56:38');
 
 -- --------------------------------------------------------
 
@@ -883,8 +842,8 @@ CREATE TABLE `leaders` (
 --
 
 INSERT INTO `leaders` (`lead_id`, `cls_no`, `std_id`, `created_at`, `updated_at`) VALUES
-(1, 1, 1, '2026-02-22 23:20:40', '2026-02-22 23:20:40'),
-(2, 2, 2, '2026-02-23 10:04:17', '2026-02-23 10:04:17');
+(3, 2, 2, '2026-02-24 20:46:47', '2026-02-24 20:46:47'),
+(4, 1, 1, '2026-02-24 20:53:39', '2026-02-24 20:53:39');
 
 -- --------------------------------------------------------
 
@@ -959,6 +918,18 @@ CREATE TABLE `message_recipients` (
 -- --------------------------------------------------------
 
 --
+-- Table structure for table `migrations`
+--
+
+CREATE TABLE `migrations` (
+  `id` int(10) UNSIGNED NOT NULL,
+  `migration` varchar(255) NOT NULL,
+  `batch` int(11) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- --------------------------------------------------------
+
+--
 -- Table structure for table `notifications`
 --
 
@@ -1018,17 +989,17 @@ CREATE TABLE `personal_access_tokens` (
   `expires_at` timestamp NULL DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Dumping data for table `personal_access_tokens`
 --
 
 INSERT INTO `personal_access_tokens` (`id`, `tokenable_type`, `tokenable_id`, `name`, `token`, `abilities`, `last_used_at`, `expires_at`, `created_at`, `updated_at`) VALUES
-(18, 'App\\Models\\User', 30, 'APP', 'c95b52f8b514fcfada3e43fad7edc74f6432955b9b093d8ec8c638136475cdc0', '[\"appeals.view\"]', '2026-02-24 17:11:23', NULL, '2026-02-24 17:11:06', '2026-02-24 17:11:23'),
-(25, 'App\\Models\\User', 31, 'APP', '55b6a0722c0117dc5fc45ef548436f9b535fe3e5b446c6f2e7970c7f84e62551', '[\"appeals.view\"]', '2026-02-24 18:53:06', NULL, '2026-02-24 18:53:06', '2026-02-24 18:53:06'),
-(26, 'App\\Models\\User', 29, 'APP', '1bf35d7796529f09b9a9f13b288654946cfec9c63e1d50255f7476915eb9491c', '[\"appeals.view\"]', '2026-02-24 18:54:39', NULL, '2026-02-24 18:54:02', '2026-02-24 18:54:39'),
-(27, 'App\\Models\\User', 32, 'APP', 'f7f69c76026aae60b501886ba4e2d23462dfe48974cb17d5c1036d59fd0ae17f', '[\"appeals.view\"]', '2026-02-24 18:55:26', NULL, '2026-02-24 18:55:02', '2026-02-24 18:55:26');
+(29, 'App\\Models\\User', 7, 'APP', '988da4df14673b5c8155f5f65995fd7b13aa5a2ce6fec1e9a8faf04573515e6d', '[\"appeals.view\"]', '2026-02-26 18:55:48', NULL, '2026-02-26 18:52:06', '2026-02-26 18:55:48'),
+(30, 'App\\Models\\User', 9, 'APP', '0bb90b48199eb4988afdbaa428d07ed6b712b73a775c60035f2c9d198f3f074a', '[\"appeals.view\"]', '2026-02-26 18:56:14', NULL, '2026-02-26 18:56:13', '2026-02-26 18:56:14'),
+(31, 'App\\Models\\User', 10, 'APP', 'f61be50443473b2ec1892eb2038afc0107c5ebbfb8389faeeb48f090f6a46824', '[\"appeals.view\"]', '2026-02-26 18:56:35', NULL, '2026-02-26 18:56:34', '2026-02-26 18:56:35'),
+(35, 'App\\Models\\User', 8, 'APP', '7b50fc248371cf0b7b266e95dc805c6fd82b0dc1e818ca8e013dd675f0333035', '[\"appeals.view\"]', '2026-02-26 21:20:17', NULL, '2026-02-26 21:19:32', '2026-02-26 21:20:17');
 
 -- --------------------------------------------------------
 
@@ -1050,8 +1021,8 @@ CREATE TABLE `roles` (
 --
 
 INSERT INTO `roles` (`role_id`, `role_name`, `description`, `status`, `created_at`, `updated_at`) VALUES
-(1, 'Student', 'University Student', 'Active', '2026-02-18 14:16:46', '2026-02-20 00:16:02'),
-(2, 'Teacher', 'University Teacher', 'Active', '2026-02-18 14:16:46', '2026-02-20 00:16:02'),
+(1, 'Student', 'System Super Administrator', 'Active', '2026-02-18 14:16:46', '2026-02-25 01:14:46'),
+(2, 'Teacher', 'Teacher User', 'Active', '2026-02-18 14:16:46', '2026-02-18 14:16:46'),
 (3, 'HeadOfExam', 'Head Of Exam Department', 'Active', '2026-02-18 14:16:46', '2026-02-18 14:16:46'),
 (4, 'Faculty', 'Faculty Office User', 'Active', '2026-02-18 14:16:46', '2026-02-18 14:16:46');
 
@@ -1075,7 +1046,7 @@ CREATE TABLE `school` (
 
 INSERT INTO `school` (`sch_no`, `name`, `addres`, `created_at`, `updated_at`) VALUES
 (1, 'Jaabir Bin Hayyan', 'Yaqshid', '2026-02-18 08:59:35', '2026-02-18 08:59:35'),
-(2, 'Niil school', 'deyniile', '2026-02-18 08:59:35', '2026-02-18 08:59:35'),
+(2, 'Iftiin school', 'deyniile', '2026-02-18 08:59:35', '2026-02-23 11:48:46'),
 (3, 'SYL school', 'hodan', '2026-02-18 09:00:35', '2026-02-18 09:00:35'),
 (4, 'mocaasir', 'waaberi', '2026-02-18 09:00:35', '2026-02-18 09:00:35');
 
@@ -1122,8 +1093,8 @@ CREATE TABLE `shifts` (
 --
 
 INSERT INTO `shifts` (`shift_no`, `shiftName`) VALUES
-(1, 'FullTime'),
-(2, 'PartTime');
+(1, 'Full Time'),
+(2, 'Part Time');
 
 -- --------------------------------------------------------
 
@@ -1144,27 +1115,29 @@ CREATE TABLE `students` (
   `parent_no` int(11) DEFAULT NULL,
   `register_date` date DEFAULT NULL,
   `mother` varchar(150) DEFAULT NULL,
+  `Pob` varchar(100) NOT NULL,
+  `graduation_year` year(4) NOT NULL,
+  `grade` varchar(20) NOT NULL,
   `sch_no` int(11) DEFAULT NULL,
   `nira` varchar(50) DEFAULT NULL,
-  `status` enum('Active','InActive') NOT NULL DEFAULT 'Active',
+  `shift_no` int(11) NOT NULL,
+  `status` varchar(20) NOT NULL DEFAULT 'Active',
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
-  `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
-  `shift_no` int(11) DEFAULT NULL,
-  `pob` varchar(100) DEFAULT 'Muqdisho',
-  `grad_year` varchar(10) DEFAULT '2022',
-  `grade` varchar(10) DEFAULT '0'
+  `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Dumping data for table `students`
 --
 
-INSERT INTO `students` (`std_id`, `user_id`, `student_id`, `name`, `tell`, `gender`, `email`, `add_no`, `dob`, `parent_no`, `register_date`, `mother`, `sch_no`, `nira`, `status`, `created_at`, `updated_at`, `shift_no`, `pob`, `grad_year`, `grade`) VALUES
-(1, 29, 'STU260001', 'Mohamed Mukhtar', '0615000001', 'Male', 'mohamed@example.com', 1, '2004-03-10', 1, '2026-02-18', 'Istahil Shire Ali', 1, 'NIRA-001', 'Active', '2026-02-18 14:19:39', '2026-02-21 11:37:55', 1, 'Muqdisho', '2022', 'A'),
-(2, 30, 'STU260002', 'Maida Hashi', '0615000002', 'Male', 'maida@example.com', 2, '2005-07-21', 2, '2026-02-18', 'Istahil Shire Ali', 2, 'NIRA-002', 'Active', '2026-02-18 14:19:39', '2026-02-21 11:37:55', 1, 'Muqdisho', '2022', 'B'),
-(3, 31, 'STU260003', 'Haliima Nour', '0615000003', 'Male', 'haliima@example.com', 3, '2004-11-02', 3, '2026-02-18', 'Istahil Shire Ali', 3, 'NIRA-003', 'Active', '2026-02-18 14:19:39', '2026-02-21 11:37:55', 1, 'Muqdisho', '2022', 'C'),
-(4, 32, 'STU260004', 'Samiir Ahmed', '0615000004', 'Male', 'samiir@example.com', 1, '2003-09-15', 4, '2026-02-18', 'Istahil Shire Ali', 4, 'NIRA-004', 'InActive', '2026-02-18 14:19:39', '2026-02-21 11:37:55', 2, 'Muqdisho', '2022', 'A-'),
-(7, 16, 'STU260005', 'Abdihafid Ahmed Weheliye', '0610365557', 'Male', 'student@university.edu', 1, NULL, 1, NULL, 'Istahil Shire Ali', 1, 'NIRA-005', 'Active', '2026-02-20 09:34:38', '2026-02-21 11:34:42', 2, 'Muqdisho', '2022', 'A+');
+INSERT INTO `students` (`std_id`, `user_id`, `student_id`, `name`, `tell`, `gender`, `email`, `add_no`, `dob`, `parent_no`, `register_date`, `mother`, `Pob`, `graduation_year`, `grade`, `sch_no`, `nira`, `shift_no`, `status`, `created_at`, `updated_at`) VALUES
+(1, 7, 'STU260001', 'Mohamed Mukhtar', '0615000001', 'Male', 'mohamed@example.com', 1, '2004-03-10', 1, '2026-02-18', 'Amina', '', '0000', '', 1, 'NIRA-001', 1, 'Active', '2026-02-18 14:19:39', '2026-02-24 14:13:03'),
+(2, 8, 'STU260002', 'Maida Hashi', '0615000002', 'Female', 'maida@example.com', 2, '2005-07-21', 2, '2026-02-18', 'Sahra', '', '0000', '', 2, 'NIRA-002', 1, 'Active', '2026-02-18 14:19:39', '2026-02-24 14:13:07'),
+(3, 9, 'STU260003', 'Haliima Nour', '0615000003', 'Female', 'haliima@example.com', 3, '2004-11-02', 3, '2026-02-18', 'Maryan', '', '0000', '', 3, 'NIRA-003', 1, 'Active', '2026-02-18 14:19:39', '2026-02-24 14:13:08'),
+(4, 10, 'STU260004', 'Samiir Ahmed', '0615000004', 'Male', 'samiir@example.com', 4, '2003-09-15', 4, '2026-02-18', 'Hodan', '', '0000', '', 4, 'NIRA-004', 1, 'Active', '2026-02-18 14:19:39', '2026-02-24 14:13:10'),
+(5, 16, 'STU260005', 'Daliima', '625362762', 'Male', 'daliima@gmail.com', 1, '2002-02-21', 1, '2026-02-25', 'Maryan', '', '0000', '', 1, 'NIRA-004', 1, 'Active', '2026-02-24 00:49:30', '2026-02-24 14:13:12'),
+(6, 17, 'STU260006', 'maryan Hussein Ulusow', '617258976', 'Male', 'maryan@gmail.com', 3, '2000-01-31', 4, '2026-02-24', 'Xabiibp', '', '0000', '', 3, 'NIRA-5', 1, 'Active', '2026-02-24 13:14:31', '2026-02-24 14:13:17'),
+(7, 22, 'STU260007', 'Daliimo -Dadiish', '613936588', 'Male', 'damiish@gmail.com', 3, '2026-02-24', 4, '2026-02-24', 'Faaduma Ali', 'Mogadishu', '2022', 'A', 3, 'NIRA--7', 1, 'Active', '2026-02-24 14:42:50', '2026-02-24 11:43:19');
 
 -- --------------------------------------------------------
 
@@ -1191,7 +1164,10 @@ INSERT INTO `student_initial_credentials` (`cred_no`, `std_id`, `user_id`, `user
 (1, 1, 7, 'STU260001', '689901', '2026-02-18 14:19:39', 0, NULL),
 (2, 2, 8, 'STU260002', '569600', '2026-02-18 14:19:39', 0, NULL),
 (3, 3, 9, 'STU260003', '778299', '2026-02-18 14:19:39', 0, NULL),
-(4, 4, 10, 'STU260004', '182693', '2026-02-18 14:19:39', 0, NULL);
+(4, 4, 10, 'STU260004', '182693', '2026-02-18 14:19:39', 0, NULL),
+(5, 5, 16, 'STU260005', '603295', '2026-02-24 00:49:30', 0, NULL),
+(6, 6, 17, 'STU260006', '474478', '2026-02-24 13:14:31', 0, NULL),
+(7, 7, 22, 'STU260007', '290259', '2026-02-24 14:42:50', 0, NULL);
 
 -- --------------------------------------------------------
 
@@ -1214,11 +1190,10 @@ CREATE TABLE `studet_classes` (
 --
 
 INSERT INTO `studet_classes` (`sc_no`, `cls_no`, `std_id`, `sem_no`, `acy_no`, `created_at`, `updated_at`) VALUES
-(1, 1, 1, 1, 1, '2026-02-22 09:48:04', '2026-02-22 09:48:04'),
-(2, 2, 2, 1, 1, '2026-02-22 09:48:04', '2026-02-22 09:48:04'),
-(3, 1, 3, 1, 1, '2026-02-22 09:48:04', '2026-02-22 09:48:04'),
-(4, 2, 4, 1, 1, '2026-02-22 09:48:04', '2026-02-22 09:48:04'),
-(5, 1, 1, 1, 1, '2026-02-23 09:14:04', '2026-02-23 09:14:04');
+(1, 1, 1, 1, 1, '2026-02-23 21:47:27', '2026-02-23 21:47:27'),
+(2, 2, 2, 1, 1, '2026-02-23 21:47:57', '2026-02-23 21:47:57'),
+(5, 1, 3, 1, 1, '2026-02-25 00:38:44', '2026-02-25 00:38:44'),
+(6, 2, 4, 1, 1, '2026-02-25 00:38:44', '2026-02-25 00:38:44');
 
 -- --------------------------------------------------------
 
@@ -1239,36 +1214,8 @@ CREATE TABLE `subjects` (
 --
 
 INSERT INTO `subjects` (`sub_no`, `name`, `code`, `created_at`, `updated_at`) VALUES
-(1, 'Introduction to Programming', 'CS101', '2026-02-21 09:08:31', '2026-02-21 09:08:31'),
-(2, 'Programming Fundamentals', 'CS102', '2026-02-21 09:08:31', '2026-02-21 09:08:31'),
-(3, 'Object Oriented Programming', 'CS103', '2026-02-21 09:08:31', '2026-02-21 09:08:31'),
-(4, 'Data Structures', 'CS201', '2026-02-21 09:08:31', '2026-02-21 09:08:31'),
-(5, 'Algorithms', 'CS202', '2026-02-21 09:08:31', '2026-02-21 09:08:31'),
-(6, 'Database Systems', 'CS203', '2026-02-21 09:08:31', '2026-02-21 09:08:31'),
-(7, 'SQL and Database Design', 'CS204', '2026-02-21 09:08:31', '2026-02-21 09:08:31'),
-(8, 'Web Development I', 'CS205', '2026-02-21 09:08:31', '2026-02-21 09:08:31'),
-(9, 'Web Development II', 'CS206', '2026-02-21 09:08:31', '2026-02-21 09:08:31'),
-(10, 'Mobile App Development', 'CS207', '2026-02-21 09:08:31', '2026-02-21 09:08:31'),
-(11, 'Software Engineering', 'CS208', '2026-02-21 09:08:31', '2026-02-21 09:08:31'),
-(12, 'System Analysis and Design', 'CS209', '2026-02-21 09:08:31', '2026-02-21 09:08:31'),
-(13, 'Computer Networks', 'CS210', '2026-02-21 09:08:31', '2026-02-21 09:08:31'),
-(14, 'Operating Systems', 'CS211', '2026-02-21 09:08:31', '2026-02-21 09:08:31'),
-(15, 'Computer Architecture', 'CS212', '2026-02-21 09:08:31', '2026-02-21 09:08:31'),
-(16, 'Cyber Security Basics', 'CS213', '2026-02-21 09:08:31', '2026-02-21 09:08:31'),
-(17, 'Artificial Intelligence', 'CS301', '2026-02-21 09:08:31', '2026-02-21 09:08:31'),
-(18, 'Machine Learning Basics', 'CS302', '2026-02-21 09:08:31', '2026-02-21 09:08:31'),
-(19, 'Cloud Computing Fundamentals', 'CS303', '2026-02-21 09:08:31', '2026-02-21 09:08:31'),
-(20, 'Version Control with Git', 'CS304', '2026-02-21 09:08:31', '2026-02-21 09:08:31'),
-(21, 'Arabic Language I', 'AR101', '2026-02-21 09:08:31', '2026-02-21 09:08:31'),
-(22, 'Arabic Language II', 'AR102', '2026-02-21 09:08:31', '2026-02-21 09:08:31'),
-(23, 'English Language I', 'EN101', '2026-02-21 09:08:31', '2026-02-21 09:08:31'),
-(24, 'English Language II', 'EN102', '2026-02-21 09:08:31', '2026-02-21 09:08:31'),
-(25, 'Tarbiyo and Ethics', 'TB101', '2026-02-21 09:08:31', '2026-02-21 09:08:31'),
-(26, 'Islamic Studies I', 'IS101', '2026-02-21 09:08:31', '2026-02-21 09:08:31'),
-(27, 'Islamic Studies II', 'IS102', '2026-02-21 09:08:31', '2026-02-21 09:08:31'),
-(28, 'Communication Skills', 'CSK101', '2026-02-21 09:08:31', '2026-02-21 09:08:31'),
-(29, 'Civic Education', 'CE101', '2026-02-21 09:08:31', '2026-02-21 09:08:31'),
-(30, 'Somali Language', 'SO101', '2026-02-21 09:08:31', '2026-02-21 09:08:31');
+(1, 'C#', '00001', '2026-02-23 12:07:06', '2026-02-23 12:07:06'),
+(3, 'java', '00002', '2026-02-24 08:04:37', '2026-02-24 08:04:37');
 
 -- --------------------------------------------------------
 
@@ -1290,18 +1237,11 @@ CREATE TABLE `subject_class` (
 --
 
 INSERT INTO `subject_class` (`sub_cl_no`, `sub_no`, `cls_no`, `teacher_no`, `created_at`, `updated_at`) VALUES
-(1, 1, 1, 1, '2026-02-22 09:42:55', '2026-02-22 09:42:55'),
-(2, 4, 1, 2, '2026-02-22 09:42:55', '2026-02-22 09:42:55'),
-(3, 14, 1, 3, '2026-02-22 09:42:55', '2026-02-22 09:42:55'),
-(4, 10, 1, 4, '2026-02-22 09:42:55', '2026-02-22 09:42:55'),
-(5, 27, 1, 5, '2026-02-22 09:42:55', '2026-02-22 09:42:55'),
-(6, 16, 1, 6, '2026-02-22 09:42:55', '2026-02-22 09:42:55'),
-(7, 5, 2, 1, '2026-02-22 09:44:59', '2026-02-22 09:44:59'),
-(8, 23, 2, 2, '2026-02-22 09:44:59', '2026-02-22 09:44:59'),
-(9, 17, 2, 3, '2026-02-22 09:44:59', '2026-02-22 09:44:59'),
-(10, 13, 2, 5, '2026-02-22 09:44:59', '2026-02-22 09:44:59'),
-(11, 19, 2, 6, '2026-02-22 09:44:59', '2026-02-22 09:44:59'),
-(12, 10, 2, 9, '2026-02-22 09:44:59', '2026-02-22 09:44:59');
+(1, 1, 4, 5, '2026-02-24 07:36:58', '2026-02-24 07:36:58'),
+(2, 1, 3, 4, '2026-02-24 07:40:50', '2026-02-24 07:40:50'),
+(3, 1, 2, 3, '2026-02-24 07:40:50', '2026-02-24 07:40:50'),
+(4, 1, 1, 5, '2026-02-24 07:40:50', '2026-02-24 07:40:50'),
+(5, 3, 1, 3, '2026-02-24 08:05:05', '2026-02-24 08:05:05');
 
 -- --------------------------------------------------------
 
@@ -1315,10 +1255,9 @@ CREATE TABLE `teachers` (
   `teacher_id` varchar(50) NOT NULL,
   `name` varchar(150) NOT NULL,
   `tell` varchar(30) DEFAULT NULL,
-  `specialization` varchar(100) DEFAULT NULL,
-  `dept_no` int(11) DEFAULT NULL,
   `email` varchar(150) DEFAULT NULL,
   `gender` varchar(15) DEFAULT NULL,
+  `add_no` int(11) NOT NULL,
   `hire_date` date DEFAULT NULL,
   `status` varchar(20) NOT NULL DEFAULT 'Active',
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
@@ -1329,19 +1268,11 @@ CREATE TABLE `teachers` (
 -- Dumping data for table `teachers`
 --
 
-INSERT INTO `teachers` (`teacher_no`, `user_id`, `teacher_id`, `name`, `tell`, `specialization`, `dept_no`, `email`, `gender`, `hire_date`, `status`, `created_at`, `updated_at`) VALUES
-(1, 1, 'TCH260001', 'Ahmed Ali Hassan', '06120000001', 'Computer Science', 1, 'tech001@university.edu', 'Male', '2020-01-01', 'Active', '2026-02-21 09:36:20', '2026-02-21 10:24:57'),
-(2, 2, 'TCH260002', 'Maryan Abdullahi', '06120000002', 'Computer Science', 1, 'tech002@university.edu', 'Female', '2020-01-01', 'Active', '2026-02-21 09:36:20', '2026-02-21 10:24:57'),
-(3, 3, 'TCH260003', 'Mohamed Nur', '06120000003', 'Computer Science', 1, 'tech003@university.edu', 'Male', '2020-01-01', 'Active', '2026-02-21 09:36:20', '2026-02-21 10:24:57'),
-(4, 4, 'TCH260004', 'Hodan Farah', '06120000004', 'Computer Science', 1, 'tech004@university.edu', 'Female', '2020-01-01', 'Active', '2026-02-21 09:36:20', '2026-02-21 10:24:57'),
-(5, 5, 'TCH260005', 'Abdirahman Yusuf', '06120000005', 'Computer Science', 1, 'tech005@university.edu', 'Male', '2020-01-01', 'Active', '2026-02-21 09:36:20', '2026-02-21 10:24:57'),
-(6, 6, 'TCH260006', 'Asha Mohamed', '06120000006', 'Computer Science', 1, 'tech006@university.edu', 'Female', '2020-01-01', 'Active', '2026-02-21 09:36:20', '2026-02-21 10:24:57'),
-(7, 7, 'TCH260007', 'Ismail Ahmed', '06120000007', 'Computer Science', 1, 'tech007@university.edu', 'Male', '2020-01-01', 'Active', '2026-02-21 09:36:20', '2026-02-21 10:24:57'),
-(8, 8, 'TCH260008', 'Sahra Osman', '06120000008', 'Computer Science', 1, 'tech008@university.edu', 'Female', '2020-01-01', 'Active', '2026-02-21 09:36:20', '2026-02-21 10:24:57'),
-(9, 9, 'TCH260009', 'Ali Ibrahim', '06120000009', 'Computer Science', 1, 'tech009@university.edu', 'Male', '2020-01-01', 'Active', '2026-02-21 09:36:20', '2026-02-21 10:24:57'),
-(10, 10, 'TCH260010', 'Fadumo Hassan', '06120000010', 'Computer Science', 1, 'tech010@university.edu', 'Female', '2020-01-01', 'Active', '2026-02-21 09:36:20', '2026-02-21 10:24:57'),
-(11, 11, 'TCH260011', 'Omar Abdi', '06120000011', 'Computer Science', 1, 'tech011@university.edu', 'Male', '2020-01-01', 'Active', '2026-02-21 09:36:20', '2026-02-21 10:24:57'),
-(12, 12, 'TCH260012', 'Naima Yusuf', '06120000012', 'Computer Science', 1, 'tech012@university.edu', 'Female', '2020-01-01', 'Active', '2026-02-21 09:36:20', '2026-02-21 10:24:57');
+INSERT INTO `teachers` (`teacher_no`, `user_id`, `teacher_id`, `name`, `tell`, `email`, `gender`, `add_no`, `hire_date`, `status`, `created_at`, `updated_at`) VALUES
+(3, 4, 'TCH260001', 'Yahye Ali Isse', '0617100001', 'yahye@example.com', 'Male', 1, '2024-01-10', 'Active', '2026-02-18 14:19:27', '2026-02-24 11:48:48'),
+(4, 5, 'TCH260002', 'Ismail M Jamaal', '0617100002', 'ismail@example.com', 'Male', 1, '2024-02-15', 'Active', '2026-02-18 14:19:27', '2026-02-24 11:48:50'),
+(5, 6, 'TCH260003', 'Abdifitah Gabeyre', '0617100003', 'abdifitah@example.com', 'Male', 1, '2024-03-20', 'Active', '2026-02-18 14:19:27', '2026-02-24 11:48:53'),
+(9, 21, 'TCH260007', 'Mohamed Khaliifa', '612344567', 'khaliifa@gmail.com', 'Male', 4, '2026-02-24', 'Active', '2026-02-24 13:56:38', '2026-02-24 13:56:38');
 
 -- --------------------------------------------------------
 
@@ -1365,18 +1296,10 @@ CREATE TABLE `teacher_initial_credentials` (
 --
 
 INSERT INTO `teacher_initial_credentials` (`cred_no`, `teacher_no`, `user_id`, `username`, `plain_password`, `created_at`, `delivered`, `delivered_at`) VALUES
-(1, 3, 3, 'Tech003', '660845', '2026-02-18 14:19:27', 0, NULL),
-(2, 4, 4, 'Tech004', '998168', '2026-02-18 14:19:27', 0, NULL),
-(3, 5, 5, 'Tech005', '008306', '2026-02-18 14:19:27', 0, NULL),
-(4, 6, 6, 'Tech006', '047025', '2026-02-19 09:33:19', 0, NULL),
-(5, 7, 7, 'Tech007', '210209', '2026-02-19 09:33:19', 0, NULL),
-(10, 1, 1, 'Tech001', '949750', '2026-02-21 10:18:34', 0, NULL),
-(11, 2, 2, 'Tech002', '102019', '2026-02-21 10:18:34', 0, NULL),
-(12, 8, 8, 'Tech008', '909971', '2026-02-21 10:18:34', 0, NULL),
-(13, 9, 9, 'Tech009', '919227', '2026-02-21 10:18:34', 0, NULL),
-(14, 10, 10, 'Tech010', '866225', '2026-02-21 10:18:34', 0, NULL),
-(15, 11, 11, 'Tech011', '573443', '2026-02-21 10:18:34', 0, NULL),
-(16, 12, 12, 'Tech012', '268540', '2026-02-21 10:18:34', 0, NULL);
+(1, 3, 4, 'TCH260001', '733609', '2026-02-18 14:19:27', 0, NULL),
+(2, 4, 5, 'TCH260002', '425425', '2026-02-18 14:19:27', 0, NULL),
+(3, 5, 6, 'TCH260003', '926297', '2026-02-18 14:19:27', 0, NULL),
+(5, 9, 21, 'TCH260007', '481961', '2026-02-24 13:56:38', 0, NULL);
 
 -- --------------------------------------------------------
 
@@ -1389,7 +1312,7 @@ CREATE TABLE `users` (
   `role_id` int(11) NOT NULL,
   `username` varchar(80) NOT NULL,
   `password_hash` varchar(255) NOT NULL,
-  `status` enum('Active','InActive') NOT NULL DEFAULT 'Active',
+  `status` varchar(20) NOT NULL DEFAULT 'Active',
   `Accees_channel` enum('APP','WEB','BOTH','') NOT NULL DEFAULT 'APP',
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
@@ -1400,23 +1323,20 @@ CREATE TABLE `users` (
 --
 
 INSERT INTO `users` (`user_id`, `role_id`, `username`, `password_hash`, `status`, `Accees_channel`, `created_at`, `updated_at`) VALUES
-(1, 2, 'TCH260001', '834386', 'Active', 'BOTH', '2026-02-21 11:05:19', '2026-02-21 11:43:13'),
-(2, 2, 'TCH260002', '509726', 'Active', 'BOTH', '2026-02-21 11:14:29', '2026-02-21 11:43:13'),
-(3, 2, 'TCH260003', '110176', 'Active', 'BOTH', '2026-02-21 11:14:29', '2026-02-21 11:43:13'),
-(4, 2, 'TCH260004', '515004', 'Active', 'BOTH', '2026-02-21 11:14:29', '2026-02-21 11:43:13'),
-(5, 2, 'TCH260005', '552608', 'Active', 'BOTH', '2026-02-21 11:14:29', '2026-02-21 11:43:13'),
-(6, 2, 'TCH260006', '655768', 'Active', 'BOTH', '2026-02-21 11:14:29', '2026-02-21 11:43:13'),
-(7, 2, 'TCH260007', '925535', 'Active', 'BOTH', '2026-02-21 11:14:29', '2026-02-21 11:43:13'),
-(8, 2, 'TCH260008', '230242', 'Active', 'BOTH', '2026-02-21 11:14:29', '2026-02-21 11:43:13'),
-(9, 2, 'TCH260009', '162113', 'Active', 'BOTH', '2026-02-21 11:14:29', '2026-02-21 11:43:13'),
-(10, 2, 'TCH260010', '459437', 'Active', 'BOTH', '2026-02-21 11:14:29', '2026-02-21 11:43:13'),
-(11, 2, 'TCH260011', '974651', 'Active', 'BOTH', '2026-02-21 11:14:29', '2026-02-21 11:43:13'),
-(12, 2, 'TCH260012', '156021', 'Active', 'BOTH', '2026-02-21 11:14:29', '2026-02-21 11:43:13'),
-(16, 1, 'STU260005', '128837', 'Active', 'APP', '2026-02-21 11:14:29', '2026-02-21 11:43:13'),
-(29, 1, 'STU260001', '302110', 'Active', 'APP', '2026-02-21 11:37:55', '2026-02-21 11:43:13'),
-(30, 1, 'STU260002', '842566', 'Active', 'APP', '2026-02-21 11:37:55', '2026-02-21 11:43:13'),
-(31, 1, 'STU260003', '308590', 'Active', 'APP', '2026-02-21 11:37:55', '2026-02-21 11:43:13'),
-(32, 1, 'STU260004', '412392', 'Active', 'APP', '2026-02-21 11:37:55', '2026-02-21 11:43:13');
+(4, 2, 'TCH260001', 'fcd83f1c3648974b1b4331f1c8dcf93227fecf90be35fc899dfd936d9590d455', 'Active', 'BOTH', '2026-02-18 14:19:27', '2026-02-23 14:39:05'),
+(5, 2, 'TCH260002', 'eada2563dad1b00af089af4abccbe3cd68494dc47039823d883a60c5147f137b', 'Active', 'BOTH', '2026-02-18 14:19:27', '2026-02-23 14:39:11'),
+(6, 2, 'TCH260003', 'c9c8a9d69fb06a569857fc7479c6ef34a2ee7714248675c85ea459f3fbae1ed3', 'Active', 'BOTH', '2026-02-18 14:19:27', '2026-02-23 14:39:15'),
+(7, 1, 'STU260001', '95b2e68b7f2817a6716c65e1c247db1475d8fcecc1890b4756540d93d6664e9b', 'Active', 'APP', '2026-02-18 14:19:39', '2026-02-18 14:19:39'),
+(8, 1, 'STU260002', '943b5f8c79ae1e92af5b74fcb0753ab36260aac8c189c9821606e949bac72d67', 'Active', 'APP', '2026-02-18 14:19:39', '2026-02-18 14:19:39'),
+(9, 1, 'STU260003', 'f733f5155f92d721a25e742ff07dc3956bdfef6ea1a77032d937071934df3037', 'Active', 'APP', '2026-02-18 14:19:39', '2026-02-18 14:19:39'),
+(10, 1, 'STU260004', '19ce9eb9783a408a033a81290e1f79d820c80e35c9229ce138112d2e1287a2b0', 'Active', 'APP', '2026-02-18 14:19:39', '2026-02-18 14:19:39'),
+(13, 1, 'admin', '240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9', 'Active', 'WEB', '2026-02-18 15:47:01', '2026-02-18 15:47:01'),
+(14, 3, 'headofexam', '578b2320a293ad56af9745e7be87eaa0ff897c84e02d9af03072b85b68c22289', 'Active', 'WEB', '2026-02-18 15:48:14', '2026-02-18 15:48:14'),
+(15, 4, 'faculty', '27041f5856c7387a997252694afb048d1aa939228ffcdbd6285b979b8da20e7a', 'Active', 'WEB', '2026-02-18 15:49:42', '2026-02-18 15:49:42'),
+(16, 1, 'STU260005', '481b31eb4435de72876fee75569c278c07ebda5c25a8287fd70d00e283d0fc28', 'Active', 'APP', '2026-02-24 00:49:30', '2026-02-24 07:15:47'),
+(17, 1, 'STU260006', '5f6970ee7cf701f36a54a77ff0ca53b208f6393c52c55c022746b0a2b5244fea', 'Active', 'APP', '2026-02-24 13:14:31', '2026-02-24 13:14:31'),
+(21, 2, 'TCH260007', 'aac9f0713f028cb61b7eabb775bb9d4fce5e9677ed734df764bf7cf6830210f2', 'Active', 'BOTH', '2026-02-24 13:56:38', '2026-02-24 13:56:38'),
+(22, 1, 'STU260007', 'c97f4625b592cafe2507c7872802d0d2e944ab0773fe5da778a2d8818117f28b', 'Active', 'APP', '2026-02-24 14:42:50', '2026-02-24 11:43:19');
 
 --
 -- Indexes for dumped tables
@@ -1688,6 +1608,12 @@ ALTER TABLE `message_recipients`
   ADD KEY `idx_mr_receiver` (`receiver_user_id`);
 
 --
+-- Indexes for table `migrations`
+--
+ALTER TABLE `migrations`
+  ADD PRIMARY KEY (`id`);
+
+--
 -- Indexes for table `notifications`
 --
 ALTER TABLE `notifications`
@@ -1706,8 +1632,9 @@ ALTER TABLE `parents`
 --
 ALTER TABLE `personal_access_tokens`
   ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `token` (`token`),
-  ADD KEY `personal_access_tokens_tokenable_type_tokenable_id_index` (`tokenable_type`,`tokenable_id`);
+  ADD UNIQUE KEY `personal_access_tokens_token_unique` (`token`),
+  ADD KEY `personal_access_tokens_tokenable_type_tokenable_id_index` (`tokenable_type`,`tokenable_id`),
+  ADD KEY `personal_access_tokens_expires_at_index` (`expires_at`);
 
 --
 -- Indexes for table `roles`
@@ -1747,7 +1674,7 @@ ALTER TABLE `students`
   ADD KEY `idx_students_add_no` (`add_no`),
   ADD KEY `idx_students_parent_no` (`parent_no`),
   ADD KEY `idx_students_sch_no` (`sch_no`),
-  ADD KEY `fk_students_shift` (`shift_no`);
+  ADD KEY `shift_no` (`shift_no`);
 
 --
 -- Indexes for table `student_initial_credentials`
@@ -1790,7 +1717,8 @@ ALTER TABLE `subject_class`
 ALTER TABLE `teachers`
   ADD PRIMARY KEY (`teacher_no`),
   ADD UNIQUE KEY `uq_teachers_user_id` (`user_id`),
-  ADD UNIQUE KEY `uq_teachers_teacher_id` (`teacher_id`);
+  ADD UNIQUE KEY `uq_teachers_teacher_id` (`teacher_id`),
+  ADD KEY `add_no` (`add_no`);
 
 --
 -- Indexes for table `teacher_initial_credentials`
@@ -1883,7 +1811,7 @@ ALTER TABLE `campus_env_tracking`
 -- AUTO_INCREMENT for table `categories`
 --
 ALTER TABLE `categories`
-  MODIFY `cat_no` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
+  MODIFY `cat_no` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
 
 --
 -- AUTO_INCREMENT for table `classes`
@@ -1895,13 +1823,13 @@ ALTER TABLE `classes`
 -- AUTO_INCREMENT for table `class_issues`
 --
 ALTER TABLE `class_issues`
-  MODIFY `cl_issue_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
+  MODIFY `cl_issue_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
 
 --
 -- AUTO_INCREMENT for table `class_issues_complaints`
 --
 ALTER TABLE `class_issues_complaints`
-  MODIFY `cl_is_co_no` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
+  MODIFY `cl_is_co_no` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
 
 --
 -- AUTO_INCREMENT for table `class_issue_assign`
@@ -1913,7 +1841,7 @@ ALTER TABLE `class_issue_assign`
 -- AUTO_INCREMENT for table `class_issue_tracking`
 --
 ALTER TABLE `class_issue_tracking`
-  MODIFY `cit_no` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
+  MODIFY `cit_no` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
 
 --
 -- AUTO_INCREMENT for table `coursework_deadlines`
@@ -1937,7 +1865,7 @@ ALTER TABLE `exams`
 -- AUTO_INCREMENT for table `exam_appeals`
 --
 ALTER TABLE `exam_appeals`
-  MODIFY `ea_no` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+  MODIFY `ea_no` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `exam_appeal_assign`
@@ -1949,7 +1877,7 @@ ALTER TABLE `exam_appeal_assign`
 -- AUTO_INCREMENT for table `exam_appeal_subjects`
 --
 ALTER TABLE `exam_appeal_subjects`
-  MODIFY `eas_no` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+  MODIFY `eas_no` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `exam_appeal_tracking`
@@ -1979,7 +1907,7 @@ ALTER TABLE `faculties`
 -- AUTO_INCREMENT for table `leaders`
 --
 ALTER TABLE `leaders`
-  MODIFY `lead_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+  MODIFY `lead_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
 
 --
 -- AUTO_INCREMENT for table `messages`
@@ -2006,6 +1934,12 @@ ALTER TABLE `message_recipients`
   MODIFY `mr_no` int(11) NOT NULL AUTO_INCREMENT;
 
 --
+-- AUTO_INCREMENT for table `migrations`
+--
+ALTER TABLE `migrations`
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT;
+
+--
 -- AUTO_INCREMENT for table `notifications`
 --
 ALTER TABLE `notifications`
@@ -2015,13 +1949,13 @@ ALTER TABLE `notifications`
 -- AUTO_INCREMENT for table `parents`
 --
 ALTER TABLE `parents`
-  MODIFY `parent_no` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
+  MODIFY `parent_no` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
 
 --
 -- AUTO_INCREMENT for table `personal_access_tokens`
 --
 ALTER TABLE `personal_access_tokens`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=28;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=36;
 
 --
 -- AUTO_INCREMENT for table `roles`
@@ -2033,7 +1967,7 @@ ALTER TABLE `roles`
 -- AUTO_INCREMENT for table `school`
 --
 ALTER TABLE `school`
-  MODIFY `sch_no` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
+  MODIFY `sch_no` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
 
 --
 -- AUTO_INCREMENT for table `semesters`
@@ -2045,7 +1979,7 @@ ALTER TABLE `semesters`
 -- AUTO_INCREMENT for table `shifts`
 --
 ALTER TABLE `shifts`
-  MODIFY `shift_no` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
+  MODIFY `shift_no` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
 
 --
 -- AUTO_INCREMENT for table `students`
@@ -2057,43 +1991,43 @@ ALTER TABLE `students`
 -- AUTO_INCREMENT for table `student_initial_credentials`
 --
 ALTER TABLE `student_initial_credentials`
-  MODIFY `cred_no` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
+  MODIFY `cred_no` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
 
 --
 -- AUTO_INCREMENT for table `studet_classes`
 --
 ALTER TABLE `studet_classes`
-  MODIFY `sc_no` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
+  MODIFY `sc_no` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
 
 --
 -- AUTO_INCREMENT for table `subjects`
 --
 ALTER TABLE `subjects`
-  MODIFY `sub_no` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=31;
+  MODIFY `sub_no` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
 
 --
 -- AUTO_INCREMENT for table `subject_class`
 --
 ALTER TABLE `subject_class`
-  MODIFY `sub_cl_no` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=13;
+  MODIFY `sub_cl_no` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
 
 --
 -- AUTO_INCREMENT for table `teachers`
 --
 ALTER TABLE `teachers`
-  MODIFY `teacher_no` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=76;
+  MODIFY `teacher_no` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=10;
 
 --
 -- AUTO_INCREMENT for table `teacher_initial_credentials`
 --
 ALTER TABLE `teacher_initial_credentials`
-  MODIFY `cred_no` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=17;
+  MODIFY `cred_no` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
 
 --
 -- AUTO_INCREMENT for table `users`
 --
 ALTER TABLE `users`
-  MODIFY `user_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=34;
+  MODIFY `user_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=23;
 
 --
 -- Constraints for dumped tables
@@ -2289,8 +2223,8 @@ ALTER TABLE `students`
   ADD CONSTRAINT `fk_students_address` FOREIGN KEY (`add_no`) REFERENCES `address` (`add_no`) ON DELETE SET NULL ON UPDATE CASCADE,
   ADD CONSTRAINT `fk_students_parents` FOREIGN KEY (`parent_no`) REFERENCES `parents` (`parent_no`) ON DELETE SET NULL ON UPDATE CASCADE,
   ADD CONSTRAINT `fk_students_school` FOREIGN KEY (`sch_no`) REFERENCES `school` (`sch_no`) ON DELETE SET NULL ON UPDATE CASCADE,
-  ADD CONSTRAINT `fk_students_shift` FOREIGN KEY (`shift_no`) REFERENCES `shifts` (`shift_no`) ON UPDATE CASCADE,
-  ADD CONSTRAINT `fk_students_users` FOREIGN KEY (`user_id`) REFERENCES `users` (`user_id`) ON UPDATE CASCADE;
+  ADD CONSTRAINT `fk_students_users` FOREIGN KEY (`user_id`) REFERENCES `users` (`user_id`) ON UPDATE CASCADE,
+  ADD CONSTRAINT `students_ibfk_1` FOREIGN KEY (`shift_no`) REFERENCES `shifts` (`shift_no`);
 
 --
 -- Constraints for table `student_initial_credentials`
@@ -2320,7 +2254,8 @@ ALTER TABLE `subject_class`
 -- Constraints for table `teachers`
 --
 ALTER TABLE `teachers`
-  ADD CONSTRAINT `fk_teachers_users` FOREIGN KEY (`user_id`) REFERENCES `users` (`user_id`) ON UPDATE CASCADE;
+  ADD CONSTRAINT `fk_teachers_users` FOREIGN KEY (`user_id`) REFERENCES `users` (`user_id`) ON UPDATE CASCADE,
+  ADD CONSTRAINT `teachers_ibfk_1` FOREIGN KEY (`add_no`) REFERENCES `address` (`add_no`);
 
 --
 -- Constraints for table `teacher_initial_credentials`
@@ -2333,7 +2268,7 @@ ALTER TABLE `teacher_initial_credentials`
 -- Constraints for table `users`
 --
 ALTER TABLE `users`
-  ADD CONSTRAINT `users_ibfk_1` FOREIGN KEY (`role_id`) REFERENCES `roles` (`role_id`);
+  ADD CONSTRAINT `fk_users_roles` FOREIGN KEY (`role_id`) REFERENCES `roles` (`role_id`) ON UPDATE CASCADE;
 COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;

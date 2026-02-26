@@ -1,4 +1,4 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -6,13 +6,13 @@ import 'package:shared_preferences/shared_preferences.dart';
 ///
 /// All API calls go through this class.
 /// Base URL:
-///   - Android emulator  → http://10.0.2.2:8000
-///   - Real device       → http://YOUR_PC_IP:8000  (change [_baseUrl] only)
+///   - Android emulator  â†’ http://10.0.2.2:8000
+///   - Real device       â†’ http://YOUR_PC_IP:8000  (change [_baseUrl] only)
 class ApiService {
   // For Android emulator, 10.0.2.2 maps to the host PC's localhost.
   // For real devices, use the PC's LAN IP.
   static const String _emulatorUrl = 'http://10.0.2.2:8000';
-  static const String _pcLanUrl = 'http://10.178.73.3:8000';
+  static const String _pcLanUrl = 'http://';
   static String _currentBaseUrl = _emulatorUrl;
   static const String _keyBaseUrl = 'api_base_url';
 
@@ -45,14 +45,14 @@ class ApiService {
     _currentBaseUrl = _emulatorUrl;
   }
 
-  // ── SharedPreferences keys ─────────────────────────────────────────────────
+  // â”€â”€ SharedPreferences keys â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   static const String _keyToken = 'auth_token';
   static const String _keyUserData = 'user_data';
   static const String _keyUserId = 'auth_user_id';
 
-  // ─────────────────────────────────────────────────────────────────────────
+  // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   // Auth
-  // ─────────────────────────────────────────────────────────────────────────
+  // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   /// Login via POST /api_login.php.
   /// Automatically tries multiple local URLs if the primary one fails.
@@ -61,7 +61,7 @@ class ApiService {
 
     // List of potential local server addresses to try (Self-healing)
     final candidateUrls = [
-      _emulatorUrl, // 1. Android emulator → host gateway (always works on emulator)
+      _emulatorUrl, // 1. Android emulator â†’ host gateway (always works on emulator)
       _pcLanUrl, // 2. Real device on LAN
       primaryUrl, // 3. Last working URL saved in prefs
     ];
@@ -144,7 +144,7 @@ class ApiService {
           _keyUserId,
           decoded['data']['user_id'].toString(),
         );
-        // Store only the `data` object — that is the user payload
+        // Store only the `data` object â€” that is the user payload
         await prefs.setString(_keyUserData, jsonEncode(decoded['data']));
         return {'success': true, 'data': decoded};
       }
@@ -173,9 +173,9 @@ class ApiService {
     } catch (_) {}
   }
 
-  // ─────────────────────────────────────────────────────────────────────────
+  // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   // Profile
-  // ─────────────────────────────────────────────────────────────────────────
+  // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   /// Fetch the full user profile and sync with local storage.
   static Future<Map<String, dynamic>> fetchMe() async {
@@ -226,9 +226,9 @@ class ApiService {
     }
   }
 
-  // ─────────────────────────────────────────────────────────────────────────
+  // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   // Exam Appeal
-  // ─────────────────────────────────────────────────────────────────────────
+  // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   /// Fetch student subjects for the current semester.
   static Future<Map<String, dynamic>> getExamSubjects() async {
@@ -292,9 +292,9 @@ class ApiService {
     }
   }
 
-  // ─────────────────────────────────────────────────────────────────────────
+  // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   // Local storage helpers
-  // ─────────────────────────────────────────────────────────────────────────
+  // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   /// Returns locally cached user data (saved at login time).
   static Future<Map<String, dynamic>?> getLocalUserData() async {
@@ -311,9 +311,9 @@ class ApiService {
     return token != null && token.isNotEmpty;
   }
 
-  // ─────────────────────────────────────────────────────────────────────────
+  // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   // Private helpers
-  // ─────────────────────────────────────────────────────────────────────────
+  // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   static Future<String?> _getToken() async {
     final prefs = await SharedPreferences.getInstance();
@@ -335,3 +335,6 @@ class ApiService {
     return prefs.getString(_keyUserId);
   }
 }
+
+
+

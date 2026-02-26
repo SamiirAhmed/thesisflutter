@@ -20,14 +20,34 @@ class ClassIssueController extends Controller
      */
     public function getIssueTypes()
     {
-        $issues = DB::table('class_issues')
-            ->orderBy('issue_name', 'asc')
-            ->select('cl_issue_id as cat_no', 'issue_name as cat_name')
-            ->get();
+        // 1. Get standard issues from class_issues
+        $standardIssues = DB::table('class_issues')
+            ->select('cl_issue_id as cat_no', 'issue_name as cat_name');
+
+        // 2. Get unique titles from past complaints (that are not already in standard issues)
+        $customTitles = DB::table('class_issues_complaints')
+            ->whereNotNull('title')
+            ->where('title', '!=', '')
+            ->whereNotExists(function ($query) {
+                $query->select(DB::raw(1))
+                      ->from('class_issues')
+                      ->whereRaw('LOWER(class_issues.issue_name) = LOWER(class_issues_complaints.title)');
+            })
+            ->select(DB::raw('MIN(cl_is_co_no) + 1000000 as cat_no'), 'title as cat_name') // Use a high offset for virtual IDs
+            ->groupBy('title');
+
+        // 3. Combine and sort
+        $results = $standardIssues->union($customTitles)->get();
+
+        // Sort: Other at the bottom, others alphabetically
+        $sorted = $results->sortBy(function ($item) {
+            if (stripos($item->cat_name, 'Other') !== false) return 'zzz';
+            return strtolower($item->cat_name);
+        })->values();
         
         return response()->json([
             'success' => true,
-            'data' => $issues
+            'data' => $sorted
         ]);
     }
 
@@ -58,12 +78,14 @@ class ClassIssueController extends Controller
     {
         $request->validate([
             'cat_no' => 'required|integer',
+            'title' => 'nullable|string|max:255',
             'description' => 'required|string',
             'cls_no' => 'nullable|integer',
         ]);
 
         $user = $request->user();
         $clIssueId = $request->cat_no;
+        $title = $request->title;
         $description = $request->description;
         $clsNo = $request->cls_no;
 
@@ -85,8 +107,21 @@ class ClassIssueController extends Controller
             ], 403);
         }
 
-        // 2. Verify the class issue exists
-        $classIssue = ClassIssue::find($clIssueId);
+        // 2. Verify or Resolve the class issue
+        $classIssue = null;
+        if ($clIssueId >= 1000000) {
+            // This is a virtual ID for a previous custom title
+            $complaintId = $clIssueId - 1000000;
+            $prevComplaint = DB::table('class_issues_complaints')->where('cl_is_co_no', $complaintId)->first();
+            if ($prevComplaint) {
+                $title = $prevComplaint->title;
+                // Map to the real "Other" issue type ID
+                $classIssue = ClassIssue::where('issue_name', 'like', '%Other%')->first();
+            }
+        } else {
+            $classIssue = ClassIssue::find($clIssueId);
+        }
+
         if (!$classIssue) {
             return response()->json([
                 'success' => false,
@@ -94,24 +129,44 @@ class ClassIssueController extends Controller
             ], 404);
         }
 
-        // 3. Create Complaint and Tracking
-        return DB::transaction(function () use ($classIssue, $description, $leader, $user) {
+        // 3. Create Complaint and Tracking (with dynamic issue creation if "Other" is selected)
+        return DB::transaction(function () use (&$classIssue, $title, $description, $leader, $user) {
+            $newCategoryCreated = false;
+            // Handle "Other" category: If user selected Other, create/select the specific issue name from the title
+            if (stripos($classIssue->issue_name, 'Other') !== false && !empty($title)) {
+                $cleanTitle = trim($title);
+                // Case-insensitive search
+                $foundIssue = ClassIssue::whereRaw('LOWER(issue_name) = ?', [strtolower($cleanTitle)])->first();
+                if ($foundIssue) {
+                    $classIssue = $foundIssue;
+                } else {
+                    $classIssue = ClassIssue::create([
+                        'issue_name' => $cleanTitle,
+                        'cat_no'     => $classIssue->cat_no, // inherit the same category group as 'Other'
+                    ]);
+                    $newCategoryCreated = true;
+                }
+            }
+
             $complaint = ClassIssueComplaint::create([
                 'cl_issue_id' => $classIssue->cl_issue_id,
+                'title'       => $title,
                 'description' => $description,
-                'lead_id' => $leader->lead_id,
+                'lead_id'     => $leader->lead_id,
             ]);
 
             ClassIssueTracking::create([
-                'cl_is_co_no' => $complaint->cl_is_co_no,
-                'new_status' => 'Pending',
+                'cl_is_co_no'        => $complaint->cl_is_co_no,
+                'new_status'         => 'Pending',
                 'changed_by_user_id' => $user->user_id,
-                'note' => 'Submitted',
+                'note'               => 'Submitted',
             ]);
 
             return response()->json([
                 'success' => true,
-                'message' => 'Issue reported successfully!'
+                'message' => $newCategoryCreated 
+                    ? "Issue reported and '$classIssue->issue_name' added to categories!" 
+                    : 'Issue reported successfully!'
             ]);
         });
     }
@@ -137,7 +192,7 @@ class ClassIssueController extends Controller
             ->leftJoin('classes as cl', 'l.cls_no', '=', 'cl.cls_no')
             ->select(
                 'cic.cl_is_co_no as id',
-                DB::raw("IFNULL(ci.issue_name, 'Classroom Issue') as issue_name"),
+                DB::raw("IFNULL(cic.title, IFNULL(ci.issue_name, 'Classroom Issue')) as issue_name"),
                 'cic.description',
                 DB::raw("IFNULL(cl.cl_name, 'Unknown Class') as class_name"),
                 'cic.created_at as submitted_at',

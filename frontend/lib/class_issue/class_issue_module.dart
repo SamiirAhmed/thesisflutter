@@ -130,6 +130,7 @@ class ClassIssueService {
     int catNo,
     String description,
     int? clsNo,
+    String? title,
   ) async {
     try {
       final url = await _getApiUrl('/submit');
@@ -139,6 +140,7 @@ class ClassIssueService {
         headers: headers,
         body: jsonEncode({
           'cat_no': catNo,
+          'title': title,
           'description': description,
           'cls_no': clsNo,
         }),
@@ -978,6 +980,7 @@ class SubmitIssueScreen extends StatefulWidget {
 class _SubmitIssueScreenState extends State<SubmitIssueScreen> {
   final _formKey = GlobalKey<FormState>();
   final _descriptionController = TextEditingController();
+  final _titleController = TextEditingController();
   List<ClassIssueType> _categories = [];
   List<Map<String, dynamic>> _myClasses = [];
   int? _selectedCatNo;
@@ -1015,6 +1018,7 @@ class _SubmitIssueScreenState extends State<SubmitIssueScreen> {
       _selectedCatNo!,
       _descriptionController.text,
       _selectedClsNo,
+      _isOtherSelected ? _titleController.text : null,
     );
     setState(() => _isSubmitting = false);
     if (result['success'] == true) {
@@ -1026,6 +1030,16 @@ class _SubmitIssueScreenState extends State<SubmitIssueScreen> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(result['message'] ?? 'Error')));
+  }
+
+  bool get _isOtherSelected {
+    if (_selectedCatNo == null) return false;
+    try {
+      final cat = _categories.firstWhere((c) => c.catNo == _selectedCatNo);
+      return cat.catName.toLowerCase().contains('other');
+    } catch (_) {
+      return false;
+    }
   }
 
   @override
@@ -1104,6 +1118,20 @@ class _SubmitIssueScreenState extends State<SubmitIssueScreen> {
                           ),
                           const SizedBox(height: 16),
                           _buildModernDropdown(isDark, surfaceColor, textColor),
+                          if (_isOtherSelected) ...[
+                            const SizedBox(height: 32),
+                            _buildSectionTitle(
+                              'Issue Title',
+                              'Briefly summarize the issue',
+                              isDark,
+                            ),
+                            const SizedBox(height: 16),
+                            _buildTitleTextField(
+                              isDark,
+                              surfaceColor,
+                              textColor,
+                            ),
+                          ],
                           const SizedBox(height: 32),
                           _buildSectionTitle(
                             'Narrative Details',
@@ -1379,6 +1407,29 @@ class _SubmitIssueScreenState extends State<SubmitIssueScreen> {
                 ],
               ),
       ),
+    );
+  }
+
+  Widget _buildTitleTextField(
+    bool isDark,
+    Color surfaceColor,
+    Color textColor,
+  ) {
+    return TextFormField(
+      controller: _titleController,
+      style: TextStyle(
+        fontSize: 15,
+        fontWeight: FontWeight.w600,
+        color: textColor,
+      ),
+      decoration: _premiumInputDecoration(
+        hint: 'e.g., Broken Chair, AC Leak...',
+        isDark: isDark,
+        surfaceColor: surfaceColor,
+      ),
+      validator: (v) => _isOtherSelected && (v == null || v.isEmpty)
+          ? 'Title required'
+          : null,
     );
   }
 

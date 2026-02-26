@@ -12,6 +12,7 @@ class ClassIssueComplaint extends Model
 
     protected $fillable = [
         'cl_issue_id',
+        'title',
         'description',
         'lead_id',
         'status', // Added status for convenience, though tracking table also has it
