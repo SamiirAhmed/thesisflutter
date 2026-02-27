@@ -55,7 +55,7 @@ class _PremiumDateHeaderState extends State<PremiumDateHeader> {
         boxShadow: [
           BoxShadow(
             color: (isDark ? Colors.black : const Color(0xFF3F51B5))
-                .withOpacity(0.2),
+                .withValues(alpha: 0.2),
             blurRadius: 20,
             offset: const Offset(0, 10),
           ),
@@ -71,7 +71,7 @@ class _PremiumDateHeaderState extends State<PremiumDateHeader> {
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [
-                      Colors.white.withOpacity(0.08),
+                      Colors.white.withValues(alpha: 0.08),
                       Colors.transparent,
                     ],
                     begin: Alignment.topCenter,
@@ -86,7 +86,7 @@ class _PremiumDateHeaderState extends State<PremiumDateHeader> {
               top: -30,
               child: CircleAvatar(
                 radius: 60,
-                backgroundColor: Colors.white.withOpacity(0.04),
+                backgroundColor: Colors.white.withValues(alpha: 0.04),
               ),
             ),
             Padding(
@@ -97,10 +97,10 @@ class _PremiumDateHeaderState extends State<PremiumDateHeader> {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.12),
+                      color: Colors.white.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(15),
                       border: Border.all(
-                        color: Colors.white.withOpacity(0.1),
+                        color: Colors.white.withValues(alpha: 0.1),
                         width: 1,
                       ),
                     ),
@@ -134,7 +134,7 @@ class _PremiumDateHeaderState extends State<PremiumDateHeader> {
                               TextSpan(
                                 text: DateFormat('yyyy').format(_now),
                                 style: TextStyle(
-                                  color: Colors.white.withOpacity(0.6),
+                                  color: Colors.white.withValues(alpha: 0.6),
                                   fontSize: 14,
                                   fontWeight: FontWeight.w700,
                                 ),
@@ -155,10 +155,10 @@ class _PremiumDateHeaderState extends State<PremiumDateHeader> {
                       vertical: 8,
                     ),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.15),
+                      color: Colors.white.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
-                        color: Colors.white.withOpacity(0.1),
+                        color: Colors.white.withValues(alpha: 0.1),
                         width: 1,
                       ),
                     ),

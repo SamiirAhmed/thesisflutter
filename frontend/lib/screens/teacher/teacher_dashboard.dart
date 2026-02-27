@@ -29,7 +29,7 @@ class TeacherDashboard extends StatefulWidget {
 
 class _TeacherDashboardState extends State<TeacherDashboard> {
   late Map<String, dynamic> userData;
-  bool _isLoading = false;
+  final bool _isLoading = false;
 
   @override
   void initState() {
@@ -74,7 +74,9 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
       displacement: 20,
       color: AppColors.primary,
       child: CustomScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
+        physics: const AlwaysScrollableScrollPhysics(
+          parent: ClampingScrollPhysics(),
+        ),
         slivers: [
           // ── Collapsible Hero Header ──────────────────────────────────────
           SliverToBoxAdapter(
@@ -202,7 +204,7 @@ class _TeacherHeroHeader extends StatelessWidget {
             top: -24,
             child: CircleAvatar(
               radius: 68,
-              backgroundColor: Colors.white.withOpacity(0.05),
+              backgroundColor: Colors.white.withValues(alpha: 0.05),
             ),
           ),
           Positioned(
@@ -210,7 +212,7 @@ class _TeacherHeroHeader extends StatelessWidget {
             bottom: -16,
             child: CircleAvatar(
               radius: 36,
-              backgroundColor: Colors.white.withOpacity(0.04),
+              backgroundColor: Colors.white.withValues(alpha: 0.04),
             ),
           ),
 
@@ -228,13 +230,13 @@ class _TeacherHeroHeader extends StatelessWidget {
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         border: Border.all(
-                          color: Colors.white.withOpacity(0.4),
+                          color: Colors.white.withValues(alpha: 0.4),
                           width: 2,
                         ),
                       ),
                       child: CircleAvatar(
                         radius: 34,
-                        backgroundColor: Colors.white.withOpacity(0.12),
+                        backgroundColor: Colors.white.withValues(alpha: 0.12),
                         child: Text(
                           initials,
                           style: const TextStyle(
@@ -253,7 +255,7 @@ class _TeacherHeroHeader extends StatelessWidget {
                           Text(
                             'Welcome back,',
                             style: TextStyle(
-                              color: Colors.white.withOpacity(0.65),
+                              color: Colors.white.withValues(alpha: 0.65),
                               fontSize: 14,
                               fontWeight: FontWeight.w500,
                             ),
@@ -301,8 +303,8 @@ class _TeacherHeroHeader extends StatelessWidget {
                       ),
                       decoration: BoxDecoration(
                         color: status.toUpperCase() == 'ACTIVE'
-                            ? Colors.greenAccent.withOpacity(0.2)
-                            : Colors.redAccent.withOpacity(0.2),
+                            ? Colors.greenAccent.withValues(alpha: 0.2)
+                            : Colors.redAccent.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
                           color: status.toUpperCase() == 'ACTIVE'
@@ -363,20 +365,20 @@ class _InfoChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.13),
+        color: Colors.white.withValues(alpha: 0.13),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withOpacity(0.2)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 13, color: Colors.white.withOpacity(0.85)),
+          Icon(icon, size: 13, color: Colors.white.withValues(alpha: 0.85)),
           const SizedBox(width: 5),
           if (label.isNotEmpty) ...[
             Text(
               label,
               style: TextStyle(
-                color: Colors.white.withOpacity(0.7),
+                color: Colors.white.withValues(alpha: 0.7),
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
               ),
@@ -490,13 +492,15 @@ class _TeacherModuleCardState extends State<_TeacherModuleCard> {
             borderRadius: BorderRadius.circular(24),
             boxShadow: [
               BoxShadow(
-                color: color.withOpacity(_pressed ? 0.22 : 0.12),
+                color: color.withValues(alpha: _pressed ? 0.22 : 0.12),
                 blurRadius: _pressed ? 20 : 14,
                 offset: const Offset(0, 6),
               ),
             ],
             border: Border.all(
-              color: _pressed ? color.withOpacity(0.3) : Colors.transparent,
+              color: _pressed
+                  ? color.withValues(alpha: 0.3)
+                  : Colors.transparent,
               width: 1.5,
             ),
           ),
@@ -520,7 +524,10 @@ class _TeacherModuleCardState extends State<_TeacherModuleCard> {
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             gradient: LinearGradient(
-              colors: [color.withOpacity(0.18), color.withOpacity(0.08)],
+              colors: [
+                color.withValues(alpha: 0.18),
+                color.withValues(alpha: 0.08),
+              ],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
@@ -562,7 +569,7 @@ class _TeacherModuleCardState extends State<_TeacherModuleCard> {
         Icon(
           Icons.arrow_forward_ios_rounded,
           size: 14,
-          color: color.withOpacity(0.6),
+          color: color.withValues(alpha: 0.6),
         ),
       ],
     );
@@ -581,7 +588,10 @@ class _TeacherModuleCardState extends State<_TeacherModuleCard> {
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             gradient: LinearGradient(
-              colors: [color.withOpacity(0.18), color.withOpacity(0.08)],
+              colors: [
+                color.withValues(alpha: 0.18),
+                color.withValues(alpha: 0.08),
+              ],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),

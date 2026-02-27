@@ -19,6 +19,8 @@ dependencies:
   provider: ^6.1.2
   shared_preferences: ^2.5.4
   intl: ^0.18.1
+  image_picker: ^1.2.1
+  http_parser: ^4.1.2
 
 dev_dependencies:
   flutter_test:

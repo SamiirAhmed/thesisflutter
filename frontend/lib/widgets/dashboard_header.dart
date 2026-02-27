@@ -27,21 +27,21 @@ class _DashboardHeaderState extends State<DashboardHeader> {
   final List<Map<String, String>> _slides = [
     {
       'image': 'assets/banner.jpg',
-      'tag': 'LATEST NEWS',
-      'title': 'JUST Marks Its 10th\nGraduation Ceremony',
-      'desc': 'A Decade of Excellence, Service, and National Impact.',
-    },
-    {
-      'image': 'assets/banner2.jpg',
-      'tag': 'ACADEMIC',
-      'title': 'New Semester\nRegistration Open',
-      'desc': 'Secure your spot for the u pcoming academic year now.',
+      'tag': 'EXAM APPEAL',
+      'title': 'Academic Appeal\nTracking System',
+      'desc': 'Submit and monitor your exam appeals in real-time.',
     },
     {
       'image': 'assets/banner3.png',
-      'tag': 'CAMPUS LIFE',
-      'title': 'University Library\nExpanded Facilities',
-      'desc': 'Access thousands of new digital and physical resources.',
+      'tag': 'CLASS ISSUE',
+      'title': 'Report Your\nClassroom Issues',
+      'desc': 'Ensure a better learning experience for everyone.',
+    },
+    {
+      'image': 'assets/banner2.jpg',
+      'tag': 'CAMPUS ENVIRONMENT',
+      'title': 'Campus Cleaning &\nEnvironment Care',
+      'desc': 'Report campus environment issues to the administration.',
     },
   ];
 
@@ -122,8 +122,8 @@ class _DashboardHeaderState extends State<DashboardHeader> {
                           begin: Alignment.bottomCenter,
                           end: Alignment.topCenter,
                           colors: [
-                            Colors.black.withOpacity(0.9),
-                            Colors.black.withOpacity(0.2),
+                            Colors.black.withValues(alpha: 0.9),
+                            Colors.black.withValues(alpha: 0.45),
                           ],
                         ),
                       ),
@@ -170,7 +170,7 @@ class _DashboardHeaderState extends State<DashboardHeader> {
                           Text(
                             _slides[index]['desc']!,
                             style: TextStyle(
-                              color: Colors.white.withOpacity(0.8),
+                              color: Colors.white.withValues(alpha: 0.8),
                               fontSize: 13,
                               fontWeight: FontWeight.w500,
                             ),
@@ -188,7 +188,7 @@ class _DashboardHeaderState extends State<DashboardHeader> {
                                 decoration: BoxDecoration(
                                   color: isActive
                                       ? Colors.white
-                                      : Colors.white.withOpacity(0.4),
+                                      : Colors.white.withValues(alpha: 0.4),
                                   borderRadius: BorderRadius.circular(2),
                                 ),
                               );

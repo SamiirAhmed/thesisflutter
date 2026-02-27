@@ -43,11 +43,28 @@ Route::prefix('v1')->group(function () {
             Route::post('/update-status', [\App\Http\Controllers\class_issue\ClassIssueController::class, 'updateStatus']);
         });
 
+        // Campus Environment
+        Route::prefix('campus-env')->group(function () {
+            Route::get('/types',          [\App\Http\Controllers\campus_env\CampusEnvController::class, 'getIssueTypes']);
+            Route::post('/submit',        [\App\Http\Controllers\campus_env\CampusEnvController::class, 'submitComplaint']);
+            Route::get('/complaints',     [\App\Http\Controllers\campus_env\CampusEnvController::class, 'getComplaints']);
+            Route::get('/tracking/{id}',  [\App\Http\Controllers\campus_env\CampusEnvController::class, 'getTracking']);
+            Route::post('/support',       [\App\Http\Controllers\campus_env\CampusEnvController::class, 'supportComplaint']);
+            Route::post('/update-status', [\App\Http\Controllers\campus_env\CampusEnvController::class, 'updateStatus']);
+            Route::get('/image/{filename}', [\App\Http\Controllers\campus_env\CampusEnvController::class, 'getImage']);
+        });
+
         // Exam Appeals
         Route::prefix('exam')->group(function () {
             Route::get('/subjects',    [\App\Http\Controllers\Exam\ExamController::class, 'getSubjects']);
             Route::post('/submit',     [\App\Http\Controllers\Exam\ExamController::class, 'submitAppeal']);
             Route::get('/track',       [\App\Http\Controllers\Exam\ExamController::class, 'trackAppeal']);
+        });
+
+        // Notifications
+        Route::prefix('notifications')->group(function () {
+            Route::get('/', [\App\Http\Controllers\NotificationController::class, 'getMyNotifications']);
+            Route::post('/{id}/read', [\App\Http\Controllers\NotificationController::class, 'markAsRead']);
         });
 
         // Logout — revokes current token only (channel-aware)

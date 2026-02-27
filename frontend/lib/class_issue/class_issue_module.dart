@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/api_service.dart';
 import '../utils/app_colors.dart';
+import 'package:frontend/widgets/app_error_widget.dart';
 
 // ── MODELS ───────────────────────────────────────────────────────────────────
 
@@ -199,6 +200,7 @@ class ClassIssueListScreen extends StatefulWidget {
 class _ClassIssueListScreenState extends State<ClassIssueListScreen> {
   List<ClassroomIssue> _issues = [];
   bool _isLoading = true;
+  String? _error;
   bool _isLeader = false;
   String _selectedStatus = 'Pending';
 
@@ -209,9 +211,15 @@ class _ClassIssueListScreenState extends State<ClassIssueListScreen> {
   }
 
   Future<void> _loadInitialData() async {
-    setState(() => _isLoading = true);
+    if (_issues.isEmpty) {
+      setState(() => _isLoading = true);
+    }
     final userData = await ApiService.getLocalUserData();
-    _isLeader = userData?['is_leader'] ?? false;
+    if (mounted) {
+      setState(() {
+        _isLeader = userData?['is_leader'] ?? false;
+      });
+    }
     await _refreshIssues();
   }
 
@@ -225,7 +233,12 @@ class _ClassIssueListScreenState extends State<ClassIssueListScreen> {
         });
       }
     } catch (e) {
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() {
+          _error = 'Connection to class issue service failed.';
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -238,7 +251,7 @@ class _ClassIssueListScreenState extends State<ClassIssueListScreen> {
     final Color surfaceColor = isDark ? const Color(0xFF1A1C1E) : Colors.white;
     final Color textColor = isDark ? Colors.white : const Color(0xFF1A1C1E);
     final Color borderColor = isDark
-        ? Colors.white.withOpacity(0.08)
+        ? Colors.white.withValues(alpha: 0.08)
         : Colors.grey[100]!;
 
     return Scaffold(
@@ -266,17 +279,26 @@ class _ClassIssueListScreenState extends State<ClassIssueListScreen> {
           ? const Center(
               child: CircularProgressIndicator(color: AppColors.primary),
             )
-          : Column(
-              children: [
-                _buildProfessionalFilterBar(isDark, surfaceColor, textColor),
-                Expanded(
-                  child: RefreshIndicator(
-                    onRefresh: _refreshIssues,
-                    color: AppColors.primary,
-                    child: _buildIssuesList(isDark, surfaceColor, textColor),
-                  ),
+          : _error != null && _issues.isEmpty
+          ? AppErrorWidget(message: _error!, onRetry: _loadInitialData)
+          : RefreshIndicator(
+              onRefresh: _refreshIssues,
+              color: AppColors.primary,
+              child: CustomScrollView(
+                physics: const AlwaysScrollableScrollPhysics(
+                  parent: ClampingScrollPhysics(),
                 ),
-              ],
+                slivers: [
+                  SliverToBoxAdapter(
+                    child: _buildProfessionalFilterBar(
+                      isDark,
+                      surfaceColor,
+                      textColor,
+                    ),
+                  ),
+                  _buildIssuesSliverList(isDark, surfaceColor, textColor),
+                ],
+              ),
             ),
       floatingActionButton: _isLeader ? _buildProfessionalFAB() : null,
     );
@@ -288,7 +310,7 @@ class _ClassIssueListScreenState extends State<ClassIssueListScreen> {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: AppColors.primary.withOpacity(0.35),
+            color: AppColors.primary.withValues(alpha: 0.35),
             blurRadius: 20,
             offset: const Offset(0, 10),
           ),
@@ -368,14 +390,16 @@ class _ClassIssueListScreenState extends State<ClassIssueListScreen> {
           padding: const EdgeInsets.symmetric(vertical: 14),
           decoration: BoxDecoration(
             color: isSelected
-                ? color.withOpacity(0.08)
-                : (isDark ? Colors.white.withOpacity(0.03) : Colors.white),
+                ? color.withValues(alpha: 0.08)
+                : (isDark
+                      ? Colors.white.withValues(alpha: 0.03)
+                      : Colors.white),
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
               color: isSelected
                   ? color
                   : (isDark
-                        ? Colors.white.withOpacity(0.08)
+                        ? Colors.white.withValues(alpha: 0.08)
                         : Colors.grey[200]!),
               width: 1.5,
             ),
@@ -407,27 +431,39 @@ class _ClassIssueListScreenState extends State<ClassIssueListScreen> {
     );
   }
 
-  Widget _buildIssuesList(bool isDark, Color surfaceColor, Color textColor) {
+  Widget _buildIssuesSliverList(
+    bool isDark,
+    Color surfaceColor,
+    Color textColor,
+  ) {
     final List<ClassroomIssue> filteredIssues = _issues.where((i) {
       String status = i.status.toLowerCase();
-      if (_selectedStatus == 'Pending')
+      if (_selectedStatus == 'Pending') {
         return status == 'pending' || status == 'in review';
+      }
       return status == _selectedStatus.toLowerCase();
     }).toList();
 
     if (filteredIssues.isEmpty) {
-      return _buildEmptyState(isDark, textColor);
+      return SliverFillRemaining(
+        hasScrollBody: false,
+        child: _buildEmptyState(isDark, textColor),
+      );
     }
 
-    return ListView.builder(
+    return SliverPadding(
+      key: const PageStorageKey('class_issue_list_key'),
       padding: const EdgeInsets.all(20),
-      physics: const BouncingScrollPhysics(),
-      itemCount: filteredIssues.length,
-      itemBuilder: (context, index) => _buildIssueCard(
-        filteredIssues[index],
-        isDark,
-        surfaceColor,
-        textColor,
+      sliver: SliverList(
+        delegate: SliverChildBuilderDelegate(
+          (context, index) => _buildIssueCard(
+            filteredIssues[index],
+            isDark,
+            surfaceColor,
+            textColor,
+          ),
+          childCount: filteredIssues.length,
+        ),
       ),
     );
   }
@@ -440,11 +476,13 @@ class _ClassIssueListScreenState extends State<ClassIssueListScreen> {
           Container(
             padding: const EdgeInsets.all(32),
             decoration: BoxDecoration(
-              color: isDark ? Colors.white.withOpacity(0.02) : Colors.white,
+              color: isDark
+                  ? Colors.white.withValues(alpha: 0.02)
+                  : Colors.white,
               shape: BoxShape.circle,
               border: Border.all(
                 color: isDark
-                    ? Colors.white.withOpacity(0.05)
+                    ? Colors.white.withValues(alpha: 0.05)
                     : Colors.grey[100]!,
               ),
             ),
@@ -496,11 +534,13 @@ class _ClassIssueListScreenState extends State<ClassIssueListScreen> {
         color: surfaceColor,
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
-          color: isDark ? Colors.white.withOpacity(0.05) : Colors.grey[100]!,
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.05)
+              : Colors.grey[100]!,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(isDark ? 0.2 : 0.02),
+            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.02),
             blurRadius: 15,
             offset: const Offset(0, 8),
           ),
@@ -532,7 +572,7 @@ class _ClassIssueListScreenState extends State<ClassIssueListScreen> {
                         Container(
                           padding: const EdgeInsets.all(10),
                           decoration: BoxDecoration(
-                            color: AppColors.primary.withOpacity(0.05),
+                            color: AppColors.primary.withValues(alpha: 0.05),
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Icon(
@@ -563,7 +603,7 @@ class _ClassIssueListScreenState extends State<ClassIssueListScreen> {
                         vertical: 6,
                       ),
                       decoration: BoxDecoration(
-                        color: statusColor.withOpacity(0.1),
+                        color: statusColor.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Text(
@@ -619,7 +659,7 @@ class _ClassIssueListScreenState extends State<ClassIssueListScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
         color: isDark
-            ? Colors.white.withOpacity(0.03)
+            ? Colors.white.withValues(alpha: 0.03)
             : const Color(0xFFF9FAFF),
         borderRadius: BorderRadius.circular(8),
       ),
@@ -684,7 +724,7 @@ class _IssueTrackingScreenState extends State<IssueTrackingScreen> {
     final Color surfaceColor = isDark ? const Color(0xFF1A1C1E) : Colors.white;
     final Color textColor = isDark ? Colors.white : const Color(0xFF1A1C1E);
     final Color borderColor = isDark
-        ? Colors.white.withOpacity(0.08)
+        ? Colors.white.withValues(alpha: 0.08)
         : Colors.grey[100]!;
 
     return Scaffold(
@@ -788,7 +828,7 @@ class _IssueTrackingScreenState extends State<IssueTrackingScreen> {
                   vertical: 4,
                 ),
                 decoration: BoxDecoration(
-                  color: AppColors.primary.withOpacity(0.06),
+                  color: AppColors.primary.withValues(alpha: 0.06),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
@@ -880,7 +920,7 @@ class _IssueTrackingScreenState extends State<IssueTrackingScreen> {
                   border: Border.all(color: surfaceColor, width: 3),
                   boxShadow: [
                     BoxShadow(
-                      color: dotColor.withOpacity(0.2),
+                      color: dotColor.withValues(alpha: 0.2),
                       blurRadius: 6,
                       spreadRadius: 2,
                     ),
@@ -894,7 +934,7 @@ class _IssueTrackingScreenState extends State<IssueTrackingScreen> {
                     margin: const EdgeInsets.symmetric(vertical: 4),
                     decoration: BoxDecoration(
                       color: isDark
-                          ? Colors.white.withOpacity(0.05)
+                          ? Colors.white.withValues(alpha: 0.05)
                           : Colors.grey[100],
                       borderRadius: BorderRadius.circular(1),
                     ),
@@ -941,12 +981,14 @@ class _IssueTrackingScreenState extends State<IssueTrackingScreen> {
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(
                       color: isDark
-                          ? Colors.white.withOpacity(0.05)
+                          ? Colors.white.withValues(alpha: 0.05)
                           : Colors.grey[50]!,
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(isDark ? 0.2 : 0.02),
+                        color: Colors.black.withValues(
+                          alpha: isDark ? 0.2 : 0.02,
+                        ),
                         blurRadius: 10,
                         offset: const Offset(0, 4),
                       ),
@@ -999,20 +1041,23 @@ class _SubmitIssueScreenState extends State<SubmitIssueScreen> {
       ClassIssueService.getIssueTypes(),
       ClassIssueService.getMyClasses(),
     ]);
-    if (mounted)
-      setState(() {
-        _categories = results[0] as List<ClassIssueType>;
-        _myClasses = results[1] as List<Map<String, dynamic>>;
-        if (_myClasses.isNotEmpty) _selectedClsNo = _myClasses[0]['cls_no'];
-        _isLoadingInitial = false;
-      });
+    if (!mounted) return;
+    setState(() {
+      _categories = results[0] as List<ClassIssueType>;
+      _myClasses = results[1] as List<Map<String, dynamic>>;
+      if (_myClasses.isNotEmpty) {
+        _selectedClsNo = _myClasses[0]['cls_no'];
+      }
+      _isLoadingInitial = false;
+    });
   }
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate() ||
         _selectedCatNo == null ||
-        _selectedClsNo == null)
+        _selectedClsNo == null) {
       return;
+    }
     setState(() => _isSubmitting = true);
     final result = await ClassIssueService.submitIssue(
       _selectedCatNo!,
@@ -1020,16 +1065,18 @@ class _SubmitIssueScreenState extends State<SubmitIssueScreen> {
       _selectedClsNo,
       _isOtherSelected ? _titleController.text : null,
     );
+    if (!mounted) return;
     setState(() => _isSubmitting = false);
     if (result['success'] == true) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Issue submitted successfully')),
       );
       Navigator.pop(context, true);
-    } else
+    } else {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(result['message'] ?? 'Error')));
+    }
   }
 
   bool get _isOtherSelected {
@@ -1051,7 +1098,7 @@ class _SubmitIssueScreenState extends State<SubmitIssueScreen> {
     final Color surfaceColor = isDark ? const Color(0xFF1A1C1E) : Colors.white;
     final Color textColor = isDark ? Colors.white : const Color(0xFF1A1C1E);
     final Color borderColor = isDark
-        ? Colors.white.withOpacity(0.08)
+        ? Colors.white.withValues(alpha: 0.08)
         : Colors.grey[100]!;
 
     return Scaffold(
@@ -1162,10 +1209,10 @@ class _SubmitIssueScreenState extends State<SubmitIssueScreen> {
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppColors.primary.withOpacity(isDark ? 0.08 : 0.04),
+        color: AppColors.primary.withValues(alpha: isDark ? 0.08 : 0.04),
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
-          color: AppColors.primary.withOpacity(isDark ? 0.15 : 0.08),
+          color: AppColors.primary.withValues(alpha: isDark ? 0.15 : 0.08),
         ),
       ),
       child: Row(
@@ -1179,7 +1226,7 @@ class _SubmitIssueScreenState extends State<SubmitIssueScreen> {
                   ? []
                   : [
                       BoxShadow(
-                        color: AppColors.primary.withOpacity(0.1),
+                        color: AppColors.primary.withValues(alpha: 0.1),
                         blurRadius: 10,
                         offset: const Offset(0, 4),
                       ),
@@ -1270,14 +1317,14 @@ class _SubmitIssueScreenState extends State<SubmitIssueScreen> {
                     color: isSelected
                         ? AppColors.primary
                         : (isDark
-                              ? Colors.white.withOpacity(0.08)
+                              ? Colors.white.withValues(alpha: 0.08)
                               : Colors.grey[200]!),
                     width: 1.5,
                   ),
                   boxShadow: isSelected && !isDark
                       ? [
                           BoxShadow(
-                            color: AppColors.primary.withOpacity(0.3),
+                            color: AppColors.primary.withValues(alpha: 0.3),
                             blurRadius: 12,
                             offset: const Offset(0, 6),
                           ),
@@ -1309,7 +1356,7 @@ class _SubmitIssueScreenState extends State<SubmitIssueScreen> {
     Color textColor,
   ) {
     return DropdownButtonFormField<int>(
-      value: _selectedCatNo,
+      initialValue: _selectedCatNo,
       dropdownColor: surfaceColor,
       style: TextStyle(
         color: textColor,
@@ -1366,7 +1413,7 @@ class _SubmitIssueScreenState extends State<SubmitIssueScreen> {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: successGreen.withOpacity(0.35),
+            color: successGreen.withValues(alpha: 0.35),
             blurRadius: 20,
             offset: const Offset(0, 10),
           ),
@@ -1454,7 +1501,9 @@ class _SubmitIssueScreenState extends State<SubmitIssueScreen> {
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(18),
         borderSide: BorderSide(
-          color: isDark ? Colors.white.withOpacity(0.08) : Colors.grey[200]!,
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.08)
+              : Colors.grey[200]!,
           width: 1.5,
         ),
       ),

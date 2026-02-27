@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:frontend/services/api_service.dart';
@@ -19,6 +20,8 @@ import 'package:frontend/screens/common/coming_soon_screen.dart';
 import 'package:frontend/screens/exam/exam_tracking_screen.dart';
 import 'package:frontend/screens/exam/exam_appeal_screen.dart';
 import 'package:frontend/class_issue/class_issue_module.dart';
+import 'package:frontend/campus_environment/campus_env_module.dart';
+import 'package:frontend/screens/dashboard/parts/notification_screen.dart';
 
 /// Root dashboard shell.
 ///
@@ -41,6 +44,7 @@ class MainDashboard extends StatefulWidget {
 class _MainDashboardState extends State<MainDashboard> {
   Map<String, dynamic>? _userData;
   bool _isLoading = true;
+  Future<void>? _activeRefresh;
 
   // Role IDs from the database — kept in sync with the current system
   static const int _roleTeacher = 2;
@@ -76,45 +80,69 @@ class _MainDashboardState extends State<MainDashboard> {
   /// This ensures the dashboard always reflects the latest database state
   /// (e.g. mode, shift, class, semester changes).
   Future<void> _refreshFromApi() async {
-    final result = await ApiService.fetchMe();
-    if (!mounted) return;
+    if (_activeRefresh != null) {
+      return _activeRefresh!;
+    }
 
-    if (result['success'] == true) {
-      final freshProfile = result['profile'] as Map<String, dynamic>;
+    final completer = Completer<void>();
+    _activeRefresh = completer.future;
 
-      // Merge the fresh profile data into existing userData
-      // Keep modules and other login-only data, but update all profile fields
-      final merged = Map<String, dynamic>.from(_userData ?? {});
-      freshProfile.forEach((key, value) {
-        merged[key] = value;
-      });
-      // Sync name field (login uses 'name', profile uses 'full_name')
-      if (freshProfile['full_name'] != null) {
-        merged['name'] = freshProfile['full_name'];
-      }
+    try {
+      final result = await ApiService.fetchMe();
+      if (!mounted) return;
 
-      // Save updated data to local storage
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('user_data', jsonEncode(merged));
+      if (result['success'] == true) {
+        final freshProfile = result['profile'] as Map<String, dynamic>;
 
-      if (mounted) {
-        setState(() => _userData = merged);
-      }
-    } else {
-      // Check if account was deactivated
-      final msg = (result['message'] ?? '').toString().toLowerCase();
-      if (msg.contains('inactive') ||
-          msg.contains('unauthorized') ||
-          msg.contains('account')) {
-        await _logout();
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(result['message'] ?? 'Account status changed.'),
-              backgroundColor: Colors.redAccent,
-            ),
-          );
+        // Merge the fresh profile data into existing userData
+        // Keep modules and other login-only data, but update all profile fields
+        final merged = Map<String, dynamic>.from(_userData ?? {});
+        freshProfile.forEach((key, value) {
+          merged[key] = value;
+        });
+        // Sync name field (login uses 'name', profile uses 'full_name')
+        if (freshProfile['full_name'] != null) {
+          merged['name'] = freshProfile['full_name'];
         }
+
+        // ── Refresh Persistence: Update Modules & Permissions ──
+        if (result['modules'] != null) {
+          merged['modules'] = result['modules'];
+        }
+        if (result['permissions'] != null) {
+          merged['permissions'] = result['permissions'];
+        }
+
+        // Save updated data to local storage
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('user_data', jsonEncode(merged));
+
+        if (mounted) {
+          setState(() => _userData = merged);
+        }
+      } else {
+        // Check if account was deactivated
+        final msg = (result['message'] ?? '').toString().toLowerCase();
+        if (msg.contains('inactive') ||
+            msg.contains('unauthorized') ||
+            msg.contains('account')) {
+          await _logout();
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(result['message'] ?? 'Account status changed.'),
+                backgroundColor: Colors.redAccent,
+              ),
+            );
+          }
+        }
+      }
+    } catch (_) {
+      // Swallow refresh exceptions so pull-to-refresh always completes cleanly.
+    } finally {
+      _activeRefresh = null;
+      if (!completer.isCompleted) {
+        completer.complete();
       }
     }
   }
@@ -257,7 +285,7 @@ class _TeacherShellState extends State<_TeacherShell> {
         decoration: BoxDecoration(
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.08),
+              color: Colors.black.withValues(alpha: 0.08),
               blurRadius: 20,
               offset: const Offset(0, -4),
             ),
@@ -341,7 +369,7 @@ class _StudentShellState extends State<_StudentShell> {
         userData: widget.userData,
         onRefresh: widget.onRefresh,
       ),
-      const ComingSoonScreen(title: 'History'),
+      const NotificationScreen(),
       const ProfileScreen(),
     ];
 
@@ -403,7 +431,7 @@ class _StudentShellState extends State<_StudentShell> {
         decoration: BoxDecoration(
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.08),
+              color: Colors.black.withValues(alpha: 0.08),
               blurRadius: 20,
               offset: const Offset(0, -4),
             ),
@@ -431,9 +459,9 @@ class _StudentShellState extends State<_StudentShell> {
               label: 'Dashboard',
             ),
             BottomNavigationBarItem(
-              icon: Icon(Icons.history_outlined),
-              activeIcon: Icon(Icons.history_rounded),
-              label: 'History',
+              icon: Icon(Icons.notifications_none_rounded),
+              activeIcon: Icon(Icons.notifications_rounded),
+              label: 'Notifications',
             ),
             BottomNavigationBarItem(
               icon: Icon(Icons.person_outline_rounded),
@@ -477,79 +505,81 @@ class _StudentDashboardHomeState extends State<_StudentDashboardHome> {
         (widget.userData['modules'] as List?)?.cast<Map<String, dynamic>>() ??
         [];
 
-    return Column(
-      children: [
-        // ── Scrollable Refreshable Content ───────────────────────────────
-        Expanded(
-          child: RefreshIndicator(
-            onRefresh: widget.onRefresh,
-            displacement: 24,
-            color: AppColors.primary,
-            backgroundColor: Colors.white,
-            child: CustomScrollView(
-              key: const PageStorageKey('student_dashboard_scroll_key'),
-              physics: const AlwaysScrollableScrollPhysics(
-                parent: BouncingScrollPhysics(),
-              ),
-              slivers: [
-                // ── Hero Banner Section (Images) ───────────────────────────
-                SliverToBoxAdapter(
-                  child: DashboardHeader(
-                    name: name,
-                    roleName: roleName,
-                    roleId: roleId,
-                  ),
-                ),
-
-                // ── Date Header (Dynamic Greeting) ─────────────────────────
-                const SliverToBoxAdapter(child: PremiumDateHeader()),
-
-                // ── Modules / Categories Section ───────────────────────────────
-                SliverToBoxAdapter(
-                  child: _StudentModulesSection(
-                    modules: modules,
-                    onModuleTap: (title, key) {
-                      if (key == 'course_appeal' ||
-                          title.toLowerCase().contains('exam')) {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const ExamAppealScreen(),
-                          ),
-                        );
-                      } else if (key == 'track_appeal' ||
-                          title.toLowerCase().contains('track')) {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const ExamTrackingScreen(),
-                          ),
-                        );
-                      } else if (key == 'class_issue' ||
-                          title.toLowerCase().contains('class issue')) {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const ClassIssueListScreen(),
-                          ),
-                        );
-                      } else {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => ComingSoonScreen(title: title),
-                          ),
-                        );
-                      }
-                    },
-                  ),
-                ),
-                const SliverToBoxAdapter(child: SizedBox(height: 32)),
-              ],
+    return RefreshIndicator(
+      onRefresh: widget.onRefresh,
+      displacement: 24,
+      color: AppColors.primary,
+      backgroundColor: Colors.white,
+      child: CustomScrollView(
+        key: const PageStorageKey('student_dashboard_scroll_key'),
+        physics: const AlwaysScrollableScrollPhysics(
+          parent: ClampingScrollPhysics(),
+        ),
+        slivers: [
+          // ── Hero Banner Section (Images) ───────────────────────────
+          SliverToBoxAdapter(
+            child: DashboardHeader(
+              name: name,
+              roleName: roleName,
+              roleId: roleId,
             ),
           ),
-        ),
-      ],
+
+          // ── Date Header (Dynamic Greeting) ─────────────────────────
+          const SliverToBoxAdapter(child: PremiumDateHeader()),
+
+          // ── Modules / Categories Section ───────────────────────────────
+          SliverToBoxAdapter(
+            child: _StudentModulesSection(
+              modules: modules,
+              onModuleTap: (title, key) {
+                if (key == 'course_appeal' ||
+                    title.toLowerCase().contains('exam')) {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const ExamAppealScreen()),
+                  );
+                } else if (key == 'track_appeal' ||
+                    title.toLowerCase().contains('track')) {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const ExamTrackingScreen(),
+                    ),
+                  );
+                } else if (key == 'class_issue' ||
+                    title.toLowerCase().contains('class issue')) {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const ClassIssueListScreen(),
+                    ),
+                  );
+                } else if (key == 'compus_enviroment' ||
+                    key == 'campus_environment' ||
+                    title.toLowerCase().contains('campus') ||
+                    title.toLowerCase().contains('environment') ||
+                    title.toLowerCase().contains('enviroment')) {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const CampusEnvListScreen(),
+                    ),
+                  );
+                } else {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => ComingSoonScreen(title: title),
+                    ),
+                  );
+                }
+              },
+            ),
+          ),
+          const SliverToBoxAdapter(child: SizedBox(height: 32)),
+        ],
+      ),
     );
   }
 }
@@ -669,7 +699,7 @@ class _StudentDrawer extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(3),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.15),
+                    color: Colors.white.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: const SizedBox(width: 36, height: 36),
@@ -690,7 +720,7 @@ class _StudentDrawer extends StatelessWidget {
                     Text(
                       name,
                       style: TextStyle(
-                        color: Colors.white.withOpacity(0.7),
+                        color: Colors.white.withValues(alpha: 0.7),
                         fontSize: 12,
                         fontWeight: FontWeight.w500,
                       ),
@@ -707,8 +737,8 @@ class _StudentDrawer extends StatelessWidget {
                                     .toString()
                                     .toUpperCase() ==
                                 'ACTIVE'
-                            ? Colors.green.withOpacity(0.3)
-                            : Colors.red.withOpacity(0.3),
+                            ? Colors.green.withValues(alpha: 0.3)
+                            : Colors.red.withValues(alpha: 0.3),
                         borderRadius: BorderRadius.circular(10),
                         border: Border.all(
                           color:
@@ -757,7 +787,10 @@ class _StudentDrawer extends StatelessWidget {
 
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Divider(color: Colors.white.withOpacity(0.15), height: 1),
+            child: Divider(
+              color: Colors.white.withValues(alpha: 0.15),
+              height: 1,
+            ),
           ),
 
           Expanded(
@@ -776,8 +809,8 @@ class _StudentDrawer extends StatelessWidget {
                 ),
                 _drawerItem(
                   context,
-                  icon: Icons.history_rounded,
-                  label: 'History',
+                  icon: Icons.notifications_rounded,
+                  label: 'Notifications',
                   isActive: selectedTab == 1,
                   onTap: () {
                     Navigator.pop(context);
@@ -794,21 +827,6 @@ class _StudentDrawer extends StatelessWidget {
                     onTabSelected(2);
                   },
                 ),
-                _drawerItem(
-                  context,
-                  icon: Icons.search_rounded,
-                  label: 'Track Appeal',
-                  isActive: false,
-                  onTap: () {
-                    Navigator.pop(context);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const ExamTrackingScreen(),
-                      ),
-                    );
-                  },
-                ),
 
                 if (modules.isNotEmpty) ...[
                   Padding(
@@ -816,7 +834,7 @@ class _StudentDrawer extends StatelessWidget {
                     child: Text(
                       'CATEGORIES',
                       style: TextStyle(
-                        color: Colors.white.withOpacity(0.4),
+                        color: Colors.white.withValues(alpha: 0.4),
                         fontSize: 11,
                         fontWeight: FontWeight.w800,
                         letterSpacing: 1.2,
@@ -838,11 +856,20 @@ class _StudentDrawer extends StatelessWidget {
                       isActive: false,
                       onTap: () {
                         Navigator.pop(context);
+                        // Route to the correct module screen
+                        Widget screen;
+                        if (key.contains('class') && key.contains('issue')) {
+                          screen = const ClassIssueListScreen();
+                        } else if (key.contains('env') ||
+                            title.toLowerCase().contains('campus') ||
+                            title.toLowerCase().contains('environment')) {
+                          screen = const CampusEnvListScreen();
+                        } else {
+                          screen = ComingSoonScreen(title: title);
+                        }
                         Navigator.push(
                           context,
-                          MaterialPageRoute(
-                            builder: (_) => ComingSoonScreen(title: title),
-                          ),
+                          MaterialPageRoute(builder: (_) => screen),
                         );
                       },
                     );
@@ -857,7 +884,7 @@ class _StudentDrawer extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.08),
+                color: Colors.white.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Row(
@@ -917,7 +944,9 @@ class _StudentDrawer extends StatelessWidget {
         margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 3),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
-          color: isActive ? Colors.white.withOpacity(0.12) : Colors.transparent,
+          color: isActive
+              ? Colors.white.withValues(alpha: 0.12)
+              : Colors.transparent,
           borderRadius: BorderRadius.circular(14),
         ),
         child: Row(
@@ -926,7 +955,7 @@ class _StudentDrawer extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(7),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.1),
+                  color: Colors.white.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Icon(icon, color: Colors.white, size: 20),

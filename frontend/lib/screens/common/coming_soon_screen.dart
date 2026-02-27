@@ -27,7 +27,7 @@ class ComingSoonScreen extends StatelessWidget {
                 padding: const EdgeInsets.all(28),
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: AppColors.primary.withOpacity(0.08),
+                  color: AppColors.primary.withValues(alpha: 0.08),
                 ),
                 child: const Icon(
                   Icons.rocket_launch_rounded,

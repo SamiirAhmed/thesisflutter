@@ -60,7 +60,7 @@ class TeacherDrawer extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: Divider(
-                  color: Colors.white.withOpacity(0.15),
+                  color: Colors.white.withValues(alpha: 0.15),
                   height: 1,
                 ),
               ),
@@ -167,9 +167,9 @@ class TeacherDrawer extends StatelessWidget {
                     vertical: 10,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.07),
+                    color: Colors.white.withValues(alpha: 0.07),
                     borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: Colors.white.withOpacity(0.1)),
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
                   ),
                   child: Row(
                     children: [
@@ -208,7 +208,7 @@ class TeacherDrawer extends StatelessWidget {
               ),
 
               Divider(
-                color: Colors.white.withOpacity(0.12),
+                color: Colors.white.withValues(alpha: 0.12),
                 height: 1,
                 indent: 20,
                 endIndent: 20,
@@ -220,7 +220,7 @@ class TeacherDrawer extends StatelessWidget {
                 leading: Container(
                   padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
-                    color: Colors.red.withOpacity(0.15),
+                    color: Colors.red.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: const Icon(
@@ -282,13 +282,13 @@ class _ProfileSection extends StatelessWidget {
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   border: Border.all(
-                    color: Colors.white.withOpacity(0.5),
+                    color: Colors.white.withValues(alpha: 0.5),
                     width: 2.5,
                   ),
                 ),
                 child: CircleAvatar(
                   radius: 30,
-                  backgroundColor: Colors.white.withOpacity(0.15),
+                  backgroundColor: Colors.white.withValues(alpha: 0.15),
                   child: Text(
                     initials,
                     style: const TextStyle(
@@ -344,8 +344,8 @@ class _ProfileSection extends StatelessWidget {
                           ),
                           decoration: BoxDecoration(
                             color: status.toUpperCase() == 'ACTIVE'
-                                ? Colors.green.withOpacity(0.2)
-                                : Colors.red.withOpacity(0.2),
+                                ? Colors.green.withValues(alpha: 0.2)
+                                : Colors.red.withValues(alpha: 0.2),
                             borderRadius: BorderRadius.circular(10),
                             border: Border.all(
                               color: status.toUpperCase() == 'ACTIVE'
@@ -405,10 +405,10 @@ class _NavItem extends StatelessWidget {
         margin: const EdgeInsets.symmetric(vertical: 3),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
-          color: isActive ? Colors.white.withOpacity(0.14) : Colors.transparent,
+          color: isActive ? Colors.white.withValues(alpha: 0.14) : Colors.transparent,
           borderRadius: BorderRadius.circular(14),
           border: isActive
-              ? Border.all(color: Colors.white.withOpacity(0.2))
+              ? Border.all(color: Colors.white.withValues(alpha: 0.2))
               : null,
         ),
         child: Row(
@@ -416,7 +416,7 @@ class _NavItem extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(7),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(isActive ? 0.15 : 0.08),
+                color: Colors.white.withValues(alpha: isActive ? 0.15 : 0.08),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Icon(icon, color: Colors.white, size: 20),

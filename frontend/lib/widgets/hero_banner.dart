@@ -21,7 +21,7 @@ class HeroBanner extends StatelessWidget {
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: Colors.black.withValues(alpha: 0.1),
             blurRadius: 20,
             offset: const Offset(0, 10),
           ),
@@ -33,8 +33,8 @@ class HeroBanner extends StatelessWidget {
           gradient: LinearGradient(
             begin: Alignment.bottomRight,
             colors: [
-              Colors.black.withOpacity(0.8),
-              Colors.black.withOpacity(0.1),
+              Colors.black.withValues(alpha: 0.8),
+              Colors.black.withValues(alpha: 0.1),
             ],
           ),
         ),
@@ -74,7 +74,7 @@ class HeroBanner extends StatelessWidget {
             Text(
               'A Decade of Excellence, Service,\nand National Impact.',
               style: TextStyle(
-                color: Colors.white.withOpacity(0.9),
+                color: Colors.white.withValues(alpha: 0.9),
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
               ),
@@ -95,7 +95,7 @@ class HeroBanner extends StatelessWidget {
                   width: 6,
                   height: 6,
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.4),
+                    color: Colors.white.withValues(alpha: 0.4),
                     shape: BoxShape.circle,
                   ),
                 ),
@@ -104,7 +104,7 @@ class HeroBanner extends StatelessWidget {
                   width: 6,
                   height: 6,
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.4),
+                    color: Colors.white.withValues(alpha: 0.4),
                     shape: BoxShape.circle,
                   ),
                 ),

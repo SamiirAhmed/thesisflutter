@@ -30,18 +30,20 @@ class _ExamAppealScreenState extends State<ExamAppealScreen> {
   Future<void> _fetchSubjects() async {
     setState(() => _isLoading = true);
     final result = await ApiService.getExamSubjects();
-    setState(() {
-      _isLoading = false;
-      if (result['success'] == true) {
+    if (!mounted) return;
+
+    if (result['success'] == true) {
+      setState(() {
+        _isLoading = false;
         _subjects = result['subjects'] ?? [];
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(result['message'] ?? 'Failed to load subjects'),
-          ),
-        );
-      }
-    });
+      });
+      return;
+    }
+
+    setState(() => _isLoading = false);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(result['message'] ?? 'Failed to load subjects')),
+    );
   }
 
   void _submitAppeal() async {
@@ -61,6 +63,7 @@ class _ExamAppealScreenState extends State<ExamAppealScreen> {
 
     setState(() => _isLoading = true);
     final result = await ApiService.submitExamAppeal(payload);
+    if (!mounted) return;
     setState(() => _isLoading = false);
 
     if (result['success'] == true) {
@@ -128,7 +131,7 @@ class _ExamAppealScreenState extends State<ExamAppealScreen> {
               offset: const Offset(0, 4),
             ),
           ],
-          border: Border.all(color: Colors.indigo.withOpacity(0.1)),
+          border: Border.all(color: Colors.indigo.withValues(alpha: 0.1)),
         ),
         child: Row(
           children: [
@@ -209,8 +212,10 @@ class _ExamAppealScreenState extends State<ExamAppealScreen> {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: color.withOpacity(0.3)),
-          boxShadow: [BoxShadow(color: color.withOpacity(0.05), blurRadius: 5)],
+          border: Border.all(color: color.withValues(alpha: 0.3)),
+          boxShadow: [
+            BoxShadow(color: color.withValues(alpha: 0.05), blurRadius: 5),
+          ],
         ),
         child: Column(
           children: [
@@ -488,7 +493,7 @@ class _ExamAppealScreenState extends State<ExamAppealScreen> {
           decoration: BoxDecoration(
             color: Colors.indigo.shade50,
             borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: Colors.indigo.withOpacity(0.3)),
+            border: Border.all(color: Colors.indigo.withValues(alpha: 0.3)),
           ),
           child: Text(
             _referenceNumber,

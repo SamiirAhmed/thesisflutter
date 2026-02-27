@@ -16,7 +16,7 @@ class AppColors {
   static const Color teacherBadge = Color(0xFF6A1B9A);
 
   // ── Neutrals (Light Mode) ─────────────────────────────────────────────────
-  static const Color background = Color(0xFFF0F2F5);
+  static const Color background = Color(0xFFFFFFFF);
   static const Color surface = Colors.white;
   static const Color textPrimary = Color(0xFF1B3131);
   static const Color textSecondary = Color(0xFF6E6E6E);
@@ -54,7 +54,6 @@ class AppColors {
         brightness: isDark ? Brightness.dark : Brightness.light,
         primary: primary,
         surface: isDark ? surfaceDark : surface,
-        background: isDark ? backgroundDark : background,
       ),
       scaffoldBackgroundColor: isDark ? backgroundDark : background,
       fontFamily: 'Roboto',
